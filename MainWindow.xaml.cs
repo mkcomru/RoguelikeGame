@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
+using System.Windows.Shapes;
 using GunVault.Models;
 using GunVault.GameEngine;
 using System.Threading.Tasks;
@@ -69,6 +70,9 @@ public partial class MainWindow : Window
             LoadingScreen.Visibility = Visibility.Visible;
             LoadingStatusText.Text = "Инициализация игры...";
             UpdateLoadingProgress(0);
+            
+            // Создаем анимированные частицы
+            CreateLoadingScreenParticles();
             
             // Инициализируем и запускаем таймер анимации загрузки
             InitializeLoadingAnimation();
@@ -593,6 +597,10 @@ public partial class MainWindow : Window
     {
         LoadingProgressBar.Value = percent;
         LoadingProgressText.Text = $"{percent}%";
+        
+        // Обновляем ширину индикатора прогресса
+        double progressWidth = (percent / 100.0) * 500; // 500 - ширина контейнера
+        ProgressIndicator.Width = progressWidth;
     }
 
     /// <summary>
@@ -624,5 +632,75 @@ public partial class MainWindow : Window
             _animationDotCount++;
             LoadingStatusText.Text += ".";
         }
+    }
+
+    /// <summary>
+    /// Создает анимированные частицы для экрана загрузки
+    /// </summary>
+    private void CreateLoadingScreenParticles()
+    {
+        // Очищаем существующие частицы
+        ParticlesCanvas.Children.Clear();
+        
+        // Создаем случайный генератор
+        Random random = new Random();
+        
+        // Создаем 50 случайных частиц
+        for (int i = 0; i < 50; i++)
+        {
+            // Создаем частицу (эллипс)
+            Ellipse particle = new Ellipse();
+            
+            // Задаем случайный размер (от 2 до 6)
+            double size = random.Next(2, 7);
+            particle.Width = size;
+            particle.Height = size;
+            
+            // Задаем случайный цвет
+            string[] colors = { "#3498db", "#2ecc71", "#e74c3c", "#f1c40f", "#9b59b6", "#1abc9c", "#FFD700" };
+            particle.Fill = new System.Windows.Media.SolidColorBrush(
+                (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(
+                    colors[random.Next(colors.Length)]));
+            
+            // Задаем случайную позицию
+            double canvasWidth = ParticlesCanvas.ActualWidth > 0 ? ParticlesCanvas.ActualWidth : 1200;
+            double canvasHeight = ParticlesCanvas.ActualHeight > 0 ? ParticlesCanvas.ActualHeight : 700;
+            Canvas.SetLeft(particle, random.NextDouble() * canvasWidth);
+            Canvas.SetTop(particle, random.NextDouble() * canvasHeight);
+            
+            // Задаем случайную прозрачность
+            particle.Opacity = random.NextDouble() * 0.5 + 0.2; // от 0.2 до 0.7
+            
+            // Добавляем частицу на канвас
+            ParticlesCanvas.Children.Add(particle);
+            
+            // Создаем анимацию для частицы
+            AnimateParticle(particle, random);
+        }
+    }
+    
+    /// <summary>
+    /// Анимирует частицу на экране загрузки
+    /// </summary>
+    private void AnimateParticle(Ellipse particle, Random random)
+    {
+        // Создаем анимацию движения по вертикали
+        DoubleAnimation moveAnimation = new DoubleAnimation();
+        moveAnimation.From = Canvas.GetTop(particle);
+        moveAnimation.To = Canvas.GetTop(particle) - random.Next(50, 200); // Движение вверх
+        moveAnimation.Duration = TimeSpan.FromSeconds(random.Next(5, 15)); // Случайная длительность
+        moveAnimation.RepeatBehavior = RepeatBehavior.Forever;
+        
+        // Создаем анимацию прозрачности
+        DoubleAnimation opacityAnimation = new DoubleAnimation();
+        opacityAnimation.From = particle.Opacity;
+        opacityAnimation.To = random.NextDouble() * 0.3 + 0.1; // Случайная прозрачность
+        opacityAnimation.Duration = TimeSpan.FromSeconds(random.Next(2, 6));
+        opacityAnimation.AutoReverse = true;
+        opacityAnimation.RepeatBehavior = RepeatBehavior.Forever;
+        
+        // Запускаем анимации
+        particle.BeginAnimation(Canvas.TopProperty, moveAnimation);
+        particle.BeginAnimation(UIElement.OpacityProperty, opacityAnimation);
     }
 }

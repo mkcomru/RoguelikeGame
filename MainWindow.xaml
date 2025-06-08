@@ -31,17 +31,101 @@
         <Canvas x:Name="GameCanvas" Grid.Row="1" Background="#222222" Focusable="True" Panel.ZIndex="0"/>
         
         <!-- Экран загрузки -->
-        <Grid x:Name="LoadingScreen" Grid.Row="1" Background="#222222" Visibility="Collapsed" Panel.ZIndex="2000">
-            <StackPanel VerticalAlignment="Center">
-                <TextBlock Text="ЗАГРУЗКА МИРА" Foreground="#FFD700" FontSize="32" FontWeight="Bold" 
-                           HorizontalAlignment="Center" Margin="0,0,0,30"/>
-                <ProgressBar x:Name="LoadingProgressBar" Width="500" Height="20" Maximum="100" Value="0"
-                             Foreground="#4CAF50" Background="#333333" BorderBrush="#555555"/>
+        <Grid x:Name="LoadingScreen" Grid.Row="1" Visibility="Collapsed" Panel.ZIndex="2000">
+            <!-- Градиентный фон -->
+            <Grid.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#0F0F1E" Offset="0"/>
+                    <GradientStop Color="#1A1A2E" Offset="1"/>
+                </LinearGradientBrush>
+            </Grid.Background>
+            
+            <!-- Анимированные частицы (декоративные элементы) -->
+            <Canvas x:Name="ParticlesCanvas">
+                <!-- Частицы добавляются динамически -->
+                <Ellipse Width="4" Height="4" Fill="#3498db" Canvas.Left="100" Canvas.Top="100" Opacity="0.6"/>
+                <Ellipse Width="3" Height="3" Fill="#2ecc71" Canvas.Left="200" Canvas.Top="150" Opacity="0.5"/>
+                <Ellipse Width="5" Height="5" Fill="#e74c3c" Canvas.Left="300" Canvas.Top="200" Opacity="0.7"/>
+                <Ellipse Width="2" Height="2" Fill="#f1c40f" Canvas.Left="400" Canvas.Top="250" Opacity="0.4"/>
+                <Ellipse Width="4" Height="4" Fill="#9b59b6" Canvas.Left="500" Canvas.Top="300" Opacity="0.6"/>
+            </Canvas>
+            
+            <!-- Основной контент экрана загрузки -->
+            <StackPanel VerticalAlignment="Center" Margin="0,-50,0,0">
+                <!-- Логотип игры -->
+                <Border Width="200" Height="200" Background="Transparent" Margin="0,0,0,30" HorizontalAlignment="Center">
+                    <Border.Effect>
+                        <DropShadowEffect Color="#FFD700" BlurRadius="20" ShadowDepth="0"/>
+                    </Border.Effect>
+                    <Grid>
+                        <!-- Внешнее кольцо -->
+                        <Ellipse Stroke="#FFD700" StrokeThickness="4" Width="200" Height="200">
+                            <Ellipse.Effect>
+                                <BlurEffect Radius="2"/>
+                            </Ellipse.Effect>
+                        </Ellipse>
+                        
+                        <!-- Внутреннее кольцо (вращающееся) -->
+                        <Ellipse x:Name="RotatingRing" Stroke="#FFD700" StrokeThickness="2" Width="160" Height="160">
+                            <Ellipse.RenderTransform>
+                                <RotateTransform x:Name="RingRotation" CenterX="80" CenterY="80"/>
+                            </Ellipse.RenderTransform>
+                            <Ellipse.Triggers>
+                                <EventTrigger RoutedEvent="Ellipse.Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="RingRotation" 
+                                                             Storyboard.TargetProperty="Angle"
+                                                             From="0" To="360" Duration="0:0:4"
+                                                             RepeatBehavior="Forever"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Ellipse.Triggers>
+                        </Ellipse>
+                        
+                        <!-- Иконка оружия в центре -->
+                        <Path Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z" 
+                              Fill="#FFD700" Width="80" Height="80" Stretch="Uniform"/>
+                    </Grid>
+                </Border>
+                
+                <!-- Название игры -->
+                <TextBlock Text="GUN VAULT" Foreground="#FFD700" FontSize="48" FontWeight="Bold" 
+                           HorizontalAlignment="Center" Margin="0,0,0,20">
+                    <TextBlock.Effect>
+                        <DropShadowEffect Color="#FFD700" BlurRadius="10" ShadowDepth="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+                
+                <!-- Анимированный текст загрузки -->
                 <TextBlock x:Name="LoadingStatusText" Text="Инициализация..." Foreground="White" 
-                           FontSize="18" HorizontalAlignment="Center" Margin="0,15,0,0"/>
+                           FontSize="20" HorizontalAlignment="Center" Margin="0,20,0,20">
+                    <TextBlock.Effect>
+                        <DropShadowEffect Color="White" BlurRadius="5" ShadowDepth="0"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+                
+                <!-- Стилизованный прогресс-бар -->
+                <Border Width="500" Height="10" Background="#333333" CornerRadius="5" Margin="0,10,0,10">
+                    <Border x:Name="ProgressIndicator" Background="#FFD700" HorizontalAlignment="Left" Width="0" CornerRadius="5">
+                        <Border.Effect>
+                            <BlurEffect Radius="2"/>
+                        </Border.Effect>
+                    </Border>
+                </Border>
+                
+                <!-- Процент загрузки -->
                 <TextBlock x:Name="LoadingProgressText" Text="0%" Foreground="White" 
                            FontSize="18" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+                
+                <!-- Подсказка -->
+                <TextBlock Text="Подготовка к приключению..." Foreground="#AAAAAA" 
+                           FontSize="16" HorizontalAlignment="Center" Margin="0,30,0,0"/>
             </StackPanel>
+            
+            <!-- Скрытый ProgressBar для сохранения функциональности -->
+            <ProgressBar x:Name="LoadingProgressBar" Width="0" Height="0" Visibility="Collapsed"/>
         </Grid>
         
         <!-- Уведомление о новом оружии -->

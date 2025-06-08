@@ -80,3 +80,4 @@ D:\OOP\RoguelikeGame\obj\Debug\net9.0-windows\refint\GunVault.dll
 D:\OOP\RoguelikeGame\obj\Debug\net9.0-windows\GunVault.pdb
 D:\OOP\RoguelikeGame\obj\Debug\net9.0-windows\GunVault.genruntimeconfig.cache
 D:\OOP\RoguelikeGame\obj\Debug\net9.0-windows\ref\GunVault.dll
+D:\OOP\RoguelikeGame\obj\Debug\net9.0-windows\GunVault.sourcelink.json
