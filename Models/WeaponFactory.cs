@@ -24,6 +24,21 @@ namespace GunVault.Models
             return WeaponProgression[weaponIndex];
         }
         
+        public static string GetWeaponName(WeaponType type)
+        {
+            switch (type)
+            {
+                case WeaponType.Pistol: return "Пистолет";
+                case WeaponType.Shotgun: return "Дробовик";
+                case WeaponType.AssaultRifle: return "Штурмовая Винтовка";
+                case WeaponType.MachineGun: return "Пулемет";
+                case WeaponType.Sniper: return "Снайперская Винтовка";
+                case WeaponType.RocketLauncher: return "Ракетница";
+                case WeaponType.Laser: return "Лазер";
+                default: return "Неизвестное оружие";
+            }
+        }
+        
         public static Weapon CreateWeapon(WeaponType type, object unused = null)
         {
             switch (type)

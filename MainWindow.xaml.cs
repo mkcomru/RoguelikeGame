@@ -126,6 +126,7 @@ public partial class MainWindow : Window
             _gameManager.WeaponChanged += GameManager_WeaponChanged;
             _gameManager.EnemyKilled += GameManager_EnemyKilled;
             _gameManager.HealthKitCollected += GameManager_HealthKitCollected;
+            _gameManager.WeaponPickedUp += GameManager_WeaponPickedUp;
             
             // Инициализируем игровой цикл
             _gameLoop = new GameLoop(_gameManager, GameCanvas.ActualWidth, GameCanvas.ActualHeight);
@@ -178,6 +179,13 @@ public partial class MainWindow : Window
     {
         // Показываем уведомление о восстановлении здоровья
         ShowNotification($"Здоровье +{healAmount}");
+    }
+    
+    // Обработка подбора оружия
+    private void GameManager_WeaponPickedUp(object sender, WeaponType weaponType)
+    {
+        // Показываем уведомление о подборе оружия
+        ShowNotification($"Подобрано: {WeaponFactory.GetWeaponName(weaponType)}");
     }
     
     // Показывает уведомление о получении нового оружия
@@ -543,6 +551,7 @@ public partial class MainWindow : Window
                 _gameManager.WeaponChanged += GameManager_WeaponChanged;
                 _gameManager.EnemyKilled += GameManager_EnemyKilled;
                 _gameManager.HealthKitCollected += GameManager_HealthKitCollected;
+                _gameManager.WeaponPickedUp += GameManager_WeaponPickedUp;
             });
             
             if (cancellationToken.IsCancellationRequested) return;
@@ -644,6 +653,9 @@ public partial class MainWindow : Window
                 
                 // Запоминаем время начала игры
                 _gameStartTime = DateTime.Now;
+                
+                // Сбрасываем отслеживание выпавшего оружия
+                _gameManager.ResetDroppedWeapons();
                 
                 Console.WriteLine("Игра успешно инициализирована");
             });

@@ -23,6 +23,7 @@ namespace GunVault.GameEngine
         private List<LaserBeam> _lasers;
         private List<BulletImpactEffect> _bulletImpactEffects;
         private List<HealthKit> _healthKits;
+        private List<WeaponDrop> _weaponDrops;
         public LevelGenerator _levelGenerator;
         private double _gameWidth;
         private double _gameHeight;
@@ -43,6 +44,7 @@ namespace GunVault.GameEngine
         public event EventHandler<string> WeaponChanged;
         public event EventHandler EnemyKilled;
         public event EventHandler<double> HealthKitCollected;
+        public event EventHandler<WeaponType> WeaponPickedUp;
 
         private ChunkManager _chunkManager;
         private bool _showChunkBoundaries = false;
@@ -72,6 +74,19 @@ namespace GunVault.GameEngine
         private int _enemyKillCounter = 0;
         private const int HEALTH_KIT_DROP_FREQUENCY = 10;
 
+        // Пороги очков для выпадения оружия
+        private static readonly Dictionary<WeaponType, int> WeaponScoreThresholds = new Dictionary<WeaponType, int>
+        {
+            { WeaponType.Shotgun, 100 },
+            { WeaponType.AssaultRifle, 400 },
+            { WeaponType.MachineGun, 800 },
+            { WeaponType.RocketLauncher, 1000 },
+            { WeaponType.Laser, 1500 }
+        };
+        
+        // Отслеживание выпавшего оружия
+        private HashSet<WeaponType> _droppedWeapons = new HashSet<WeaponType>();
+
         public GameManager(Canvas gameCanvas, Player player, double gameWidth, double gameHeight, SpriteManager spriteManager = null)
         {
             _gameCanvas = gameCanvas;
@@ -85,6 +100,7 @@ namespace GunVault.GameEngine
             _lasers = new List<LaserBeam>();
             _bulletImpactEffects = new List<BulletImpactEffect>();
             _healthKits = new List<HealthKit>();
+            _weaponDrops = new List<WeaponDrop>();
             _random = new Random();
             _score = 0;
             _enemySpawnTimer = 0;
@@ -168,7 +184,6 @@ namespace GunVault.GameEngine
                 _enemyDespawnCheckTimer = ENEMY_DESPAWN_CHECK_INTERVAL;
             }
             
-            CheckWeaponUpgrade();
             _enemySpawnTimer -= deltaTime;
             if (_enemySpawnTimer <= 0)
             {
@@ -238,7 +253,11 @@ namespace GunVault.GameEngine
             UpdateExplosions(deltaTime);
             UpdateBulletImpacts(deltaTime);
             UpdateHealthKits(deltaTime);
+            UpdateWeaponDrops(deltaTime);
             CheckCollisions();
+            
+            // Проверяем, нужно ли создать выпад оружия
+            CheckWeaponDrops();
         }
 
         public void HandleKeyPress(KeyEventArgs e)
@@ -248,20 +267,6 @@ namespace GunVault.GameEngine
                 _showChunkBoundaries = !_showChunkBoundaries;
                 _chunkManager.ToggleChunkBoundaries(_showChunkBoundaries);
                 Console.WriteLine($"Отображение границ чанков: {(_showChunkBoundaries ? "включено" : "выключено")}");
-            }
-        }
-
-        private void CheckWeaponUpgrade()
-        {
-            WeaponType currentType = _player.GetWeaponType();
-            WeaponType expectedType = WeaponFactory.GetWeaponTypeForScore(_score);
-            
-            if (expectedType != currentType)
-            {
-                Weapon newWeapon = WeaponFactory.CreateWeapon(expectedType);
-                _player.ChangeWeapon(newWeapon, _worldContainer);
-                _lastWeaponType = expectedType;
-                WeaponChanged?.Invoke(this, newWeapon.Name);
             }
         }
 
@@ -575,6 +580,9 @@ namespace GunVault.GameEngine
                                 SpawnHealthKit(_enemies[j].X, _enemies[j].Y);
                             }
                             
+                            // Проверяем, нужно ли создать выпадение оружия с этого врага
+                            TryDropWeaponFromEnemy(_enemies[j].X, _enemies[j].Y);
+                            
                             _worldContainer.Children.Remove(_enemies[j].EnemyShape);
                             _worldContainer.Children.Remove(_enemies[j].HealthBar);
                             _enemies.RemoveAt(j);
@@ -605,6 +613,9 @@ namespace GunVault.GameEngine
                                 SpawnHealthKit(_enemies[j].X, _enemies[j].Y);
                             }
                             
+                            // Проверяем, нужно ли создать выпадение оружия с этого врага
+                            TryDropWeaponFromEnemy(_enemies[j].X, _enemies[j].Y);
+                            
                             _worldContainer.Children.Remove(_enemies[j].EnemyShape);
                             _worldContainer.Children.Remove(_enemies[j].HealthBar);
                             _enemies.RemoveAt(j);
@@ -627,6 +638,10 @@ namespace GunVault.GameEngine
                             100
                         );
                     }
+                    
+                    // Проверяем, нужно ли создать выпадение оружия с этого врага
+                    TryDropWeaponFromEnemy(_enemies[i].X, _enemies[i].Y);
+                    
                     _worldContainer.Children.Remove(_enemies[i].EnemyShape);
                     _worldContainer.Children.Remove(_enemies[i].HealthBar);
                     _enemies.RemoveAt(i);
@@ -644,6 +659,22 @@ namespace GunVault.GameEngine
                     
                     _worldContainer.Children.Remove(_healthKits[i].VisualElement);
                     _healthKits.RemoveAt(i);
+                }
+            }
+            
+            // Проверка коллизий с выпадающим оружием
+            for (int i = _weaponDrops.Count - 1; i >= 0; i--)
+            {
+                if (_weaponDrops[i].CollidesWithPlayer(_player))
+                {
+                    Weapon newWeapon = WeaponFactory.CreateWeapon(_weaponDrops[i].WeaponType);
+                    _player.ChangeWeapon(newWeapon, _worldContainer);
+                    
+                    WeaponPickedUp?.Invoke(this, _weaponDrops[i].WeaponType);
+                    WeaponChanged?.Invoke(this, newWeapon.Name);
+                    
+                    _worldContainer.Children.Remove(_weaponDrops[i].VisualElement);
+                    _weaponDrops.RemoveAt(i);
                 }
             }
         }
@@ -995,6 +1026,70 @@ namespace GunVault.GameEngine
         private void OnEnemiesReadyToRestore(object sender, ChunkEnemyRestoreEventArgs e)
         {
             RestoreEnemiesFromState(e.EnemiesToRestore);
+        }
+
+        // Проверяет, нужно ли создать выпадение оружия
+        private void CheckWeaponDrops()
+        {
+            // Оружие больше не выпадает автоматически при достижении порога очков
+            // а выпадает только с убитых врагов
+        }
+
+        // Проверяет, нужно ли создать выпадение оружия с врага
+        private void TryDropWeaponFromEnemy(double x, double y)
+        {
+            // Определяем, какое оружие может выпасть при текущем счете
+            WeaponType weaponToDrop = WeaponType.Pistol;
+            bool shouldDrop = false;
+            
+            foreach (var weaponPair in WeaponScoreThresholds)
+            {
+                // Если достигнут порог очков и оружие еще не выпадало
+                if (_score >= weaponPair.Value && !_droppedWeapons.Contains(weaponPair.Key))
+                {
+                    weaponToDrop = weaponPair.Key;
+                    shouldDrop = true;
+                    break;
+                }
+            }
+            
+            if (shouldDrop)
+            {
+                // Создаем выпадение оружия на месте убитого врага
+                SpawnWeaponDrop(x, y, weaponToDrop);
+                
+                // Отмечаем, что это оружие уже выпало
+                _droppedWeapons.Add(weaponToDrop);
+                
+                Console.WriteLine($"Выпало оружие {WeaponFactory.GetWeaponName(weaponToDrop)} при достижении {WeaponScoreThresholds[weaponToDrop]} очков");
+            }
+        }
+
+        private void UpdateWeaponDrops(double deltaTime)
+        {
+            for (int i = _weaponDrops.Count - 1; i >= 0; i--)
+            {
+                bool isActive = _weaponDrops[i].Update(deltaTime);
+                if (!isActive)
+                {
+                    _worldContainer.Children.Remove(_weaponDrops[i].VisualElement);
+                    _weaponDrops.RemoveAt(i);
+                }
+            }
+        }
+
+        private void SpawnWeaponDrop(double x, double y, WeaponType weaponType)
+        {
+            WeaponDrop weaponDrop = new WeaponDrop(x, y, weaponType, _spriteManager);
+            _weaponDrops.Add(weaponDrop);
+            _worldContainer.Children.Add(weaponDrop.VisualElement);
+            Console.WriteLine($"Создано выпадающее оружие '{WeaponFactory.GetWeaponName(weaponType)}' на позиции ({x}, {y})");
+        }
+
+        // Сбросить отслеживание выпавшего оружия (для перезапуска игры)
+        public void ResetDroppedWeapons()
+        {
+            _droppedWeapons.Clear();
         }
     }
 } 
