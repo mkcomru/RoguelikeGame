@@ -38,6 +38,11 @@ public partial class MainWindow : Window
     private const int INITIAL_BUFFER_SIZE = 500; // Размер буферной зоны вокруг игрока (в пикселях)
     private System.Windows.Threading.DispatcherTimer? _loadingAnimationTimer; // Таймер для анимации текста загрузки
     
+    // Переменные для отслеживания статистики игры
+    private DateTime _gameStartTime;
+    private int _enemiesKilled = 0;
+    private bool _isGameOver = false;
+    
     public MainWindow()
     {
         InitializeComponent();
@@ -119,6 +124,7 @@ public partial class MainWindow : Window
             _gameManager = new GameManager(GameCanvas, _player, GameCanvas.ActualWidth, GameCanvas.ActualHeight, _spriteManager);
             _gameManager.ScoreChanged += GameManager_ScoreChanged;
             _gameManager.WeaponChanged += GameManager_WeaponChanged;
+            _gameManager.EnemyKilled += GameManager_EnemyKilled;
             
             // Инициализируем игровой цикл
             _gameLoop = new GameLoop(_gameManager, GameCanvas.ActualWidth, GameCanvas.ActualHeight);
@@ -132,6 +138,10 @@ public partial class MainWindow : Window
             
             // Обновляем информацию об игроке
             UpdatePlayerInfo();
+            
+            // Запоминаем время начала игры
+            _gameStartTime = DateTime.Now;
+            _isGameOver = false;
             
             Console.WriteLine("Игра успешно инициализирована");
         }
@@ -154,6 +164,12 @@ public partial class MainWindow : Window
     {
         // Вместо MessageBox показываем внутриигровое уведомление
         ShowWeaponNotification(weaponName);
+    }
+    
+    // Обработка уничтожения врага
+    private void GameManager_EnemyKilled(object sender, EventArgs e)
+    {
+        _enemiesKilled++;
     }
     
     // Показывает уведомление о получении нового оружия
@@ -236,6 +252,44 @@ public partial class MainWindow : Window
     private void GameLoop_GameTick(object sender, EventArgs e)
     {
         UpdatePlayerInfo();
+        
+        // Проверяем, жив ли игрок
+        if (_player != null && _player.Health <= 0 && !_isGameOver)
+        {
+            PlayerDeath();
+        }
+    }
+    
+    // Обработка смерти игрока
+    private void PlayerDeath()
+    {
+        _isGameOver = true;
+        
+        // Останавливаем игровой цикл
+        _gameLoop?.Stop();
+        
+        // Вычисляем время игры
+        TimeSpan gameTime = DateTime.Now - _gameStartTime;
+        string timeString = $"{gameTime.Minutes:D2}:{gameTime.Seconds:D2}";
+        
+        // Обновляем статистику на экране смерти
+        DeathScoreText.Text = $"Счёт: {_score}";
+        DeathTimeText.Text = $"Время игры: {timeString}";
+        DeathKillsText.Text = $"Убито врагов: {_enemiesKilled}";
+        
+        // Показываем экран смерти с анимацией
+        DeathScreen.Opacity = 0;
+        DeathScreen.Visibility = Visibility.Visible;
+        
+        // Анимация появления экрана смерти
+        DoubleAnimation fadeIn = new DoubleAnimation
+        {
+            From = 0,
+            To = 1,
+            Duration = TimeSpan.FromSeconds(1)
+        };
+        
+        DeathScreen.BeginAnimation(UIElement.OpacityProperty, fadeIn);
     }
     
     // Обновление отображаемой информации
@@ -479,6 +533,7 @@ public partial class MainWindow : Window
                 _gameManager = new GameManager(GameCanvas, _player, GameCanvas.ActualWidth, GameCanvas.ActualHeight, _spriteManager);
                 _gameManager.ScoreChanged += GameManager_ScoreChanged;
                 _gameManager.WeaponChanged += GameManager_WeaponChanged;
+                _gameManager.EnemyKilled += GameManager_EnemyKilled;
             });
             
             if (cancellationToken.IsCancellationRequested) return;
@@ -566,6 +621,9 @@ public partial class MainWindow : Window
                 // Скрываем экран загрузки
                 LoadingScreen.Visibility = Visibility.Collapsed;
                 
+                // Сбрасываем флаг окончания игры
+                _isGameOver = false;
+                
                 // Запускаем игровой цикл
                 _gameLoop.Start();
                 
@@ -574,6 +632,9 @@ public partial class MainWindow : Window
                 
                 // Обновляем информацию об игроке
                 UpdatePlayerInfo();
+                
+                // Запоминаем время начала игры
+                _gameStartTime = DateTime.Now;
                 
                 Console.WriteLine("Игра успешно инициализирована");
             });
@@ -702,5 +763,62 @@ public partial class MainWindow : Window
         // Запускаем анимации
         particle.BeginAnimation(Canvas.TopProperty, moveAnimation);
         particle.BeginAnimation(UIElement.OpacityProperty, opacityAnimation);
+    }
+    
+    /// <summary>
+    /// Обработчик нажатия на кнопку "Начать сначала"
+    /// </summary>
+    private void RestartButton_Click(object sender, RoutedEventArgs e)
+    {
+        // Скрываем экран смерти
+        DeathScreen.Visibility = Visibility.Collapsed;
+        
+        // Очищаем игровой канвас
+        GameCanvas.Children.Clear();
+        
+        // Сбрасываем счет и статистику
+        _score = 0;
+        _enemiesKilled = 0;
+        
+        // Сбрасываем флаг окончания игры
+        _isGameOver = false;
+        
+        // Освобождаем ресурсы текущей игры
+        if (_gameManager != null)
+        {
+            _gameManager.Dispose();
+            _gameManager = null;
+        }
+        
+        // Останавливаем игровой цикл, если он еще запущен
+        if (_gameLoop != null)
+        {
+            _gameLoop.Stop();
+            _gameLoop = null;
+        }
+        
+        // Показываем экран загрузки
+        LoadingScreen.Visibility = Visibility.Visible;
+        LoadingStatusText.Text = "Перезапуск игры...";
+        UpdateLoadingProgress(0);
+        
+        // Создаем анимированные частицы
+        CreateLoadingScreenParticles();
+        
+        // Инициализируем и запускаем таймер анимации загрузки
+        InitializeLoadingAnimation();
+        
+        // Запускаем инициализацию игры с предзагрузкой в отдельном потоке
+        _preloadCancellation = new CancellationTokenSource();
+        _preloadTask = Task.Run(() => PreloadGame(_preloadCancellation.Token), _preloadCancellation.Token);
+    }
+    
+    /// <summary>
+    /// Обработчик нажатия на кнопку "Выйти"
+    /// </summary>
+    private void ExitButton_Click(object sender, RoutedEventArgs e)
+    {
+        // Закрываем приложение
+        Application.Current.Shutdown();
     }
 }

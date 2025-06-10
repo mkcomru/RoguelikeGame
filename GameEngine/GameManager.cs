@@ -40,6 +40,7 @@ namespace GunVault.GameEngine
         private SpriteManager _spriteManager;
         public event EventHandler<int> ScoreChanged;
         public event EventHandler<string> WeaponChanged;
+        public event EventHandler EnemyKilled;
 
         private ChunkManager _chunkManager;
         private bool _showChunkBoundaries = false;
@@ -593,6 +594,7 @@ namespace GunVault.GameEngine
                             _worldContainer.Children.Remove(_enemies[j].EnemyShape);
                             _worldContainer.Children.Remove(_enemies[j].HealthBar);
                             _enemies.RemoveAt(j);
+                            EnemyKilled?.Invoke(this, EventArgs.Empty);
                         }
                         break;
                     }
@@ -614,6 +616,7 @@ namespace GunVault.GameEngine
                             _worldContainer.Children.Remove(_enemies[j].EnemyShape);
                             _worldContainer.Children.Remove(_enemies[j].HealthBar);
                             _enemies.RemoveAt(j);
+                            EnemyKilled?.Invoke(this, EventArgs.Empty);
                         }
                     }
                 }
@@ -635,6 +638,7 @@ namespace GunVault.GameEngine
                     _worldContainer.Children.Remove(_enemies[i].EnemyShape);
                     _worldContainer.Children.Remove(_enemies[i].HealthBar);
                     _enemies.RemoveAt(i);
+                    EnemyKilled?.Invoke(this, EventArgs.Empty);
                 }
             }
         }
@@ -730,6 +734,7 @@ namespace GunVault.GameEngine
                     _worldContainer.Children.Remove(enemy.EnemyShape);
                     _worldContainer.Children.Remove(enemy.HealthBar);
                     _enemies.Remove(enemy);
+                    EnemyKilled?.Invoke(this, EventArgs.Empty);
                 }
             }
             if (sortedEnemies.Count > 0)
@@ -831,6 +836,7 @@ namespace GunVault.GameEngine
                     _worldContainer.Children.Remove(enemy.EnemyShape);
                     _worldContainer.Children.Remove(enemy.HealthBar);
                     _enemies.Remove(enemy);
+                    EnemyKilled?.Invoke(this, EventArgs.Empty);
                 }
                 
                 Console.WriteLine($"Кэшировано {enemiesToRemove.Count} врагов из устаревших неактивных чанков.");
