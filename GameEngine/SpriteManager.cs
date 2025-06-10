@@ -102,6 +102,30 @@ namespace GunVault.GameEngine
             }
         }
         
+        /// <summary>
+        /// Проверяет, доступен ли спрайт с указанным именем
+        /// </summary>
+        /// <param name="spriteName">Имя спрайта</param>
+        /// <returns>true, если спрайт доступен</returns>
+        public bool HasSprite(string spriteName)
+        {
+            // Если спрайт уже в кэше, он точно доступен
+            if (_spriteCache.ContainsKey(spriteName))
+            {
+                return true;
+            }
+            
+            // Если менеджер не инициализирован, спрайт недоступен
+            if (!_initialized)
+            {
+                return false;
+            }
+            
+            // Проверяем наличие файла спрайта
+            string filePath = System.IO.Path.Combine(_spritesFolder, $"{spriteName}.png");
+            return File.Exists(filePath);
+        }
+        
         public UIElement CreateSpriteImage(string spriteName, double width, double height)
         {
             try
@@ -158,6 +182,9 @@ namespace GunVault.GameEngine
                     case "water1": fillBrush = Brushes.DodgerBlue; break;
                     case "stone1": fillBrush = Brushes.Gray; break;
                     case "sand1": fillBrush = Brushes.Khaki; break;
+                    
+                    // Предметы
+                    case "healthkit": fillBrush = Brushes.Red; break;
                 }
             }
             

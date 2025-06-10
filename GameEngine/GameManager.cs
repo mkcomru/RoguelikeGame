@@ -22,6 +22,7 @@ namespace GunVault.GameEngine
         private List<Explosion> _explosions;
         private List<LaserBeam> _lasers;
         private List<BulletImpactEffect> _bulletImpactEffects;
+        private List<HealthKit> _healthKits;
         public LevelGenerator _levelGenerator;
         private double _gameWidth;
         private double _gameHeight;
@@ -41,6 +42,7 @@ namespace GunVault.GameEngine
         public event EventHandler<int> ScoreChanged;
         public event EventHandler<string> WeaponChanged;
         public event EventHandler EnemyKilled;
+        public event EventHandler<double> HealthKitCollected;
 
         private ChunkManager _chunkManager;
         private bool _showChunkBoundaries = false;
@@ -67,6 +69,9 @@ namespace GunVault.GameEngine
         private int _maxEnemiesPerThread = 20;
         private int _processingThreadCount = 0;
 
+        private int _enemyKillCounter = 0;
+        private const int HEALTH_KIT_DROP_FREQUENCY = 10;
+
         public GameManager(Canvas gameCanvas, Player player, double gameWidth, double gameHeight, SpriteManager spriteManager = null)
         {
             _gameCanvas = gameCanvas;
@@ -79,6 +84,7 @@ namespace GunVault.GameEngine
             _explosions = new List<Explosion>();
             _lasers = new List<LaserBeam>();
             _bulletImpactEffects = new List<BulletImpactEffect>();
+            _healthKits = new List<HealthKit>();
             _random = new Random();
             _score = 0;
             _enemySpawnTimer = 0;
@@ -231,6 +237,7 @@ namespace GunVault.GameEngine
             UpdateLasers(deltaTime);
             UpdateExplosions(deltaTime);
             UpdateBulletImpacts(deltaTime);
+            UpdateHealthKits(deltaTime);
             CheckCollisions();
         }
 
@@ -303,66 +310,52 @@ namespace GunVault.GameEngine
             double spawnX = 0, spawnY = 0;
             bool foundValidSpawn = false;
             
-            // Максимальное количество попыток найти проходимую позицию
             int maxAttempts = 30;
             int attempts = 0;
             
-            // Получаем границы видимой области камеры
             double cameraLeft = _camera.X;
             double cameraTop = _camera.Y;
             double cameraRight = _camera.X + _camera.ViewportWidth;
             double cameraBottom = _camera.Y + _camera.ViewportHeight;
             
-            // Буфер расстояния от края экрана
             double buffer = 100;
             
-            // Примерный радиус врага для проверки
             double enemyRadius = 20;
             
-            // Временный коллайдер для проверки
             RectCollider tempCollider = null;
             
-            // Активные чанки для спавна
             List<Chunk> activeChunks = _chunkManager.GetActiveChunks();
             
-            // Если нет активных чанков (что мало вероятно), не спавним врага
             if (activeChunks.Count == 0)
             {
                 Console.WriteLine("Не удалось создать врага: нет активных чанков");
                 return;
             }
             
-            // Сохраняем чанк, в котором будет создан враг
             Chunk? spawnChunk = null;
             
             while (!foundValidSpawn && attempts < maxAttempts)
             {
                 attempts++;
                 
-                // Выбираем случайный активный чанк для спавна
                 spawnChunk = activeChunks[_random.Next(activeChunks.Count)];
                 
-                // Не спавним в чанке, где находится игрок
                 var (playerChunkX, playerChunkY) = Chunk.WorldToChunk(_player.X, _player.Y);
                 if (spawnChunk.ChunkX == playerChunkX && spawnChunk.ChunkY == playerChunkY)
                 {
                     continue;
                 }
                 
-                // Определяем позицию спавна внутри выбранного чанка
                 double chunkLeft = spawnChunk.WorldX;
                 double chunkTop = spawnChunk.WorldY;
                 double spawnAreaWidth = spawnChunk.PixelSize;
                 double spawnAreaHeight = spawnChunk.PixelSize;
                 
-                // Небольшое смещение от края чанка
                 double margin = 20;
                 
-                // Получаем случайную позицию внутри выбранного чанка
                 spawnX = chunkLeft + margin + _random.NextDouble() * (spawnAreaWidth - 2 * margin);
                 spawnY = chunkTop + margin + _random.NextDouble() * (spawnAreaHeight - 2 * margin);
                 
-                // Создаем временный коллайдер для проверки проходимости области
                 if (tempCollider == null)
                 {
                     double colliderSize = enemyRadius * 2 * 0.8;
@@ -373,12 +366,10 @@ namespace GunVault.GameEngine
                     tempCollider.UpdatePosition(spawnX - tempCollider.Width/2, spawnY - tempCollider.Height/2);
                 }
                 
-                // Проверяем проходимость точек и коллизии
                 if (_levelGenerator != null)
                 {
                     bool centerWalkable = _levelGenerator.IsTileWalkable(spawnX, spawnY);
                     
-                    // Проверяем 8 точек по окружности
                     bool allPointsWalkable = true;
                     double checkRadius = enemyRadius * 0.8;
                     
@@ -394,7 +385,6 @@ namespace GunVault.GameEngine
                         }
                     }
                     
-                    // Используем IsAreaWalkable для точной проверки коллизий
                     bool areaWalkable = _levelGenerator.IsAreaWalkable(tempCollider);
                     
                     if (centerWalkable && allPointsWalkable && areaWalkable)
@@ -405,29 +395,23 @@ namespace GunVault.GameEngine
                 }
             }
             
-            // Если не нашли место после всех попыток, используем фоллбэк метод
             if (!foundValidSpawn)
             {
                 Console.WriteLine("Не удалось найти проходимую позицию для спавна, ищем безопасное место вне чанка игрока");
                 
-                // Получаем чанк игрока
                 var (playerChunkX, playerChunkY) = Chunk.WorldToChunk(_player.X, _player.Y);
                 
-                // Перебираем все чанки вокруг игрока, но не сам чанк игрока
                 for (int y = playerChunkY - ChunkManager.ACTIVATION_DISTANCE; y <= playerChunkY + ChunkManager.ACTIVATION_DISTANCE; y++)
                 {
                     for (int x = playerChunkX - ChunkManager.ACTIVATION_DISTANCE; x <= playerChunkX + ChunkManager.ACTIVATION_DISTANCE; x++)
                     {
-                        // Пропускаем чанк игрока
                         if (x == playerChunkX && y == playerChunkY)
                             continue;
                             
-                        // Получаем мировые координаты центра чанка
                         var (worldX, worldY) = Chunk.ChunkToWorld(x, y);
                         worldX += Chunk.CHUNK_SIZE * TileSettings.TILE_SIZE / 2;
                         worldY += Chunk.CHUNK_SIZE * TileSettings.TILE_SIZE / 2;
                         
-                        // Проверяем проходимость центра чанка
                         tempCollider.UpdatePosition(worldX - tempCollider.Width/2, worldY - tempCollider.Height/2);
                         
                         if (_levelGenerator.IsTileWalkable(worldX, worldY) && _levelGenerator.IsAreaWalkable(tempCollider))
@@ -444,13 +428,10 @@ namespace GunVault.GameEngine
                     if (foundValidSpawn) break;
                 }
                 
-                // Если все еще не нашли безопасное место, спавним за пределами экрана
                 if (!foundValidSpawn)
                 {
-                    // В крайнем случае, просто спавним за пределами экрана
                     if (_random.NextDouble() < 0.5)
                     {
-                        // Слева или справа от экрана
                         spawnX = _random.NextDouble() < 0.5 ? 
                             Math.Max(enemyRadius, cameraLeft - buffer) : 
                             Math.Min(_worldWidth - enemyRadius, cameraRight + buffer);
@@ -461,7 +442,6 @@ namespace GunVault.GameEngine
                     }
                     else
                     {
-                        // Сверху или снизу от экрана
                         spawnX = _random.NextDouble() * (_camera.ViewportWidth + buffer * 2) + 
                             Math.Max(enemyRadius, cameraLeft - buffer);
                         spawnX = Math.Min(spawnX, _worldWidth - enemyRadius);
@@ -473,23 +453,19 @@ namespace GunVault.GameEngine
                     
                     Console.WriteLine($"Крайний случай: спавн за пределами экрана: ({spawnX:F1}, {spawnY:F1})");
                     
-                    // Получаем или создаем чанк для этой позиции
                     var (spawnChunkX, spawnChunkY) = Chunk.WorldToChunk(spawnX, spawnY);
                     spawnChunk = _chunkManager.GetOrCreateChunk(spawnChunkX, spawnChunkY);
                 }
             }
             
-            // Если у нас есть чанк для спавна, гарантируем, что он активен
             if (spawnChunk != null)
             {
-                // Принудительно активируем чанк, чтобы враг не исчез сразу
                 spawnChunk.IsActive = true;
             }
             
             EnemyType enemyType = EnemyFactory.GetRandomEnemyTypeForScore(_score, _random);
             Enemy enemy = EnemyFactory.CreateEnemy(enemyType, spawnX, spawnY, _score, _spriteManager);
             
-            // Добавляем врага в мировой контейнер
             _worldContainer.Children.Add(enemy.EnemyShape);
             _worldContainer.Children.Add(enemy.HealthBar);
             
@@ -591,6 +567,14 @@ namespace GunVault.GameEngine
                         {
                             _score += _enemies[j].ScoreValue;
                             ScoreChanged?.Invoke(this, _score);
+                            
+                            _enemyKillCounter++;
+                            
+                            if (_enemyKillCounter % HEALTH_KIT_DROP_FREQUENCY == 0)
+                            {
+                                SpawnHealthKit(_enemies[j].X, _enemies[j].Y);
+                            }
+                            
                             _worldContainer.Children.Remove(_enemies[j].EnemyShape);
                             _worldContainer.Children.Remove(_enemies[j].HealthBar);
                             _enemies.RemoveAt(j);
@@ -613,6 +597,14 @@ namespace GunVault.GameEngine
                         {
                             _score += _enemies[j].ScoreValue;
                             ScoreChanged?.Invoke(this, _score);
+                            
+                            _enemyKillCounter++;
+                            
+                            if (_enemyKillCounter % HEALTH_KIT_DROP_FREQUENCY == 0)
+                            {
+                                SpawnHealthKit(_enemies[j].X, _enemies[j].Y);
+                            }
+                            
                             _worldContainer.Children.Remove(_enemies[j].EnemyShape);
                             _worldContainer.Children.Remove(_enemies[j].HealthBar);
                             _enemies.RemoveAt(j);
@@ -641,6 +633,19 @@ namespace GunVault.GameEngine
                     EnemyKilled?.Invoke(this, EventArgs.Empty);
                 }
             }
+            
+            for (int i = _healthKits.Count - 1; i >= 0; i--)
+            {
+                if (_healthKits[i].CollidesWithPlayer(_player))
+                {
+                    _player.Heal(_healthKits[i].HealAmount);
+                    
+                    HealthKitCollected?.Invoke(this, _healthKits[i].HealAmount);
+                    
+                    _worldContainer.Children.Remove(_healthKits[i].VisualElement);
+                    _healthKits.RemoveAt(i);
+                }
+            }
         }
 
         public void ResizeGameArea(double width, double height)
@@ -648,27 +653,21 @@ namespace GunVault.GameEngine
             _gameWidth = width;
             _gameHeight = height;
             
-            // Обновляем размеры видимой области в камере
             _camera.UpdateViewport(width, height);
             
-            // Обновляем уровень только если изменились размеры мира
             if (_levelGenerator != null && (_worldWidth != width * WORLD_SIZE_MULTIPLIER || 
                                            _worldHeight != height * WORLD_SIZE_MULTIPLIER))
             {
                 _worldWidth = width * WORLD_SIZE_MULTIPLIER;
                 _worldHeight = height * WORLD_SIZE_MULTIPLIER;
                 
-                // Обновляем размер мирового контейнера
                 _worldContainer.Width = _worldWidth;
                 _worldContainer.Height = _worldHeight;
                 
-                // Обновляем размер мира в камере
                 _camera.UpdateWorldSize(_worldWidth, _worldHeight);
                 
-                // Ограничиваем игрока новыми границами мира
                 _player.ConstrainToWorldBounds(0, 0, _worldWidth, _worldHeight);
                 
-                // Перегенерируем уровень при значительном изменении размеров
                 _levelGenerator.ResizeLevel(_worldWidth, _worldHeight);
             }
         }
@@ -688,23 +687,11 @@ namespace GunVault.GameEngine
             return _levelGenerator.IsTileWalkable(x, y);
         }
 
-        /// <summary>
-        /// Получает коллайдеры тайлов около указанной позиции
-        /// </summary>
-        /// <param name="x">Координата X</param>
-        /// <param name="y">Координата Y</param>
-        /// <returns>Словарь с коллайдерами тайлов</returns>
         public Dictionary<string, RectCollider> GetNearbyTileColliders(double x, double y)
         {
-            // Теперь используем только коллайдеры из активных чанков
             return _chunkManager.GetActiveChunkColliders();
         }
         
-        /// <summary>
-        /// Проверяет, является ли область проходимой
-        /// </summary>
-        /// <param name="playerCollider">Коллайдер игрока или другого объекта</param>
-        /// <returns>true, если область проходима</returns>
         public bool IsAreaWalkable(RectCollider playerCollider)
         {
             return _levelGenerator.IsAreaWalkable(playerCollider);
@@ -774,45 +761,30 @@ namespace GunVault.GameEngine
             }
         }
 
-        /// <summary>
-        /// Возвращает менеджер чанков для внешнего доступа
-        /// </summary>
         public ChunkManager GetChunkManager()
         {
             return _chunkManager;
         }
 
-        /// <summary>
-        /// Включает/выключает отображение границ чанков
-        /// </summary>
         public void ToggleChunkBoundaries()
         {
             _showChunkBoundaries = !_showChunkBoundaries;
             _chunkManager.ToggleChunkBoundaries(_showChunkBoundaries);
         }
 
-        /// <summary>
-        /// Удаляет врагов, находящихся в устаревших неактивных чанках
-        /// </summary>
         private void RemoveEnemiesInStaleChunks()
         {
-            // Если нет врагов, нечего удалять
             if (_enemies.Count == 0) return;
             
-            // Минимальное время с момента создания врага, после которого его можно удалять из неактивного чанка
             TimeSpan minimumEnemyLifetime = TimeSpan.FromSeconds(3.0);
             
-            // Время бездействия чанка, после которого враги в нём удаляются
             TimeSpan staleTime = TimeSpan.FromSeconds(ENEMY_DESPAWN_TIME);
             
             List<Enemy> enemiesToRemove = new List<Enemy>();
             DateTime now = DateTime.Now;
             
-            // Проходим по всем врагам
             foreach (var enemy in _enemies)
             {
-                // Проверяем, находится ли враг в устаревшем неактивном чанке
-                // И если враг существует достаточно долго
                 if (enemy.CreationTime.Add(minimumEnemyLifetime) < now && 
                     _chunkManager.IsInInactiveStaleChunk(enemy.X, enemy.Y, staleTime))
                 {
@@ -820,19 +792,15 @@ namespace GunVault.GameEngine
                 }
             }
             
-            // Вместо удаления, сохраняем состояние врагов и затем удаляем их
             if (enemiesToRemove.Count > 0)
             {
                 foreach (var enemy in enemiesToRemove)
                 {
-                    // Создаем объект состояния врага
                     string spriteName = GetEnemySpriteName(enemy.Type);
                     EnemyState enemyState = EnemyState.CreateFromEnemy(enemy, spriteName);
                     
-                    // Кэшируем состояние врага в соответствующем чанке
                     _chunkManager.CacheEnemyState(enemyState);
                     
-                    // Удаляем враждебный объект с экрана
                     _worldContainer.Children.Remove(enemy.EnemyShape);
                     _worldContainer.Children.Remove(enemy.HealthBar);
                     _enemies.Remove(enemy);
@@ -843,9 +811,6 @@ namespace GunVault.GameEngine
             }
         }
         
-        /// <summary>
-        /// Возвращает имя спрайта врага по его типу
-        /// </summary>
         private string GetEnemySpriteName(EnemyType enemyType)
         {
             switch (enemyType)
@@ -855,24 +820,20 @@ namespace GunVault.GameEngine
                 case EnemyType.Runner:
                     return "enemy2";
                 case EnemyType.Tank:
-                    return "enemy1"; // Использовать соответствующий спрайт
+                    return "enemy1";
                 case EnemyType.Bomber:
-                    return "enemy1"; // Использовать соответствующий спрайт
+                    return "enemy1";
                 case EnemyType.Boss:
-                    return "enemy1"; // Использовать соответствующий спрайт
+                    return "enemy1";
                 default:
                     return "enemy1";
             }
         }
         
-        /// <summary>
-        /// Восстанавливает врагов из их кэшированных состояний
-        /// </summary>
         private void RestoreEnemiesFromState(List<EnemyState> enemyStates)
         {
             foreach (var state in enemyStates)
             {
-                // Создаем нового врага на основе сохраненного состояния
                 Enemy enemy = EnemyFactory.CreateEnemy(
                     type: state.Type,
                     x: state.X,
@@ -881,13 +842,10 @@ namespace GunVault.GameEngine
                     spriteManager: _spriteManager
                 );
                 
-                // Восстанавливаем сохраненные параметры врага
                 if (enemy.TakeDamage(enemy.MaxHealth - state.Health))
                 {
-                    // Добавляем врага в игру
                     _enemies.Add(enemy);
                     
-                    // Добавляем визуальные элементы врага на экран
                     _worldContainer.Children.Add(enemy.EnemyShape);
                     _worldContainer.Children.Add(enemy.HealthBar);
                     
@@ -898,14 +856,11 @@ namespace GunVault.GameEngine
             }
         }
 
-        /// <summary>
-        /// Запускает задачу обработки врагов в отдельном потоке
-        /// </summary>
         private void StartEnemyProcessingTask()
         {
             if (_enemyProcessingTask != null && !_enemyProcessingTask.IsCompleted)
             {
-                return; // Задача уже запущена
+                return;
             }
 
             _enemyProcessingCancellation = new CancellationTokenSource();
@@ -920,13 +875,11 @@ namespace GunVault.GameEngine
                     {
                         ProcessEnemiesInThreads();
                         
-                        // Небольшая пауза для синхронизации с основным циклом
                         Thread.Sleep(10);
                     }
                 }
                 catch (OperationCanceledException)
                 {
-                    // Задача отменена, выходим нормально
                     Console.WriteLine("Многопоточная обработка врагов отменена");
                 }
                 catch (Exception ex)
@@ -936,18 +889,13 @@ namespace GunVault.GameEngine
             }, _enemyProcessingCancellation.Token);
         }
 
-        /// <summary>
-        /// Обрабатывает врагов в нескольких потоках
-        /// </summary>
         private void ProcessEnemiesInThreads()
         {
-            // Если потоки уже работают над врагами, пропускаем
             if (Interlocked.CompareExchange(ref _processingThreadCount, 0, 0) > 0)
                 return;
         
             List<Enemy> enemiesCopy;
         
-            // Копируем список врагов для безопасной работы
             lock (_enemiesLock)
             {
                 if (_enemies.Count == 0)
@@ -956,13 +904,11 @@ namespace GunVault.GameEngine
                 enemiesCopy = new List<Enemy>(_enemies);
             }
         
-            // Вычисляем оптимальное количество потоков
             int optimalThreadCount = Math.Max(1, Math.Min(
                 Environment.ProcessorCount - 1, 
                 (int)Math.Ceiling((double)enemiesCopy.Count / _maxEnemiesPerThread)
             ));
         
-            // Разбиваем врагов на группы
             List<List<Enemy>> enemyGroups = new List<List<Enemy>>();
             int groupSize = (int)Math.Ceiling((double)enemiesCopy.Count / optimalThreadCount);
         
@@ -972,52 +918,62 @@ namespace GunVault.GameEngine
                 enemyGroups.Add(enemiesCopy.GetRange(i, count));
             }
         
-            // Запускаем потоки для обработки групп врагов
             Interlocked.Exchange(ref _processingThreadCount, enemyGroups.Count);
         
-            // Запускаем задачи для каждой группы
             foreach (var group in enemyGroups)
             {
                 Task.Run(() => 
                 {
                     try
                     {
-                        // Получаем позицию игрока для вычислений
                         double playerX = _player.X;
                         double playerY = _player.Y;
                     
                         foreach (var enemy in group)
                         {
-                            // Проверяем, находится ли враг в поле зрения
                             if (_camera.IsInViewExtended(enemy.X, enemy.Y, 200))
                             {
-                                // Вычисляем следующую позицию врага
-                                enemy.MoveTowardsPlayer(playerX, playerY, 1.0 / 60.0); // фиксированный deltaTime
+                                enemy.MoveTowardsPlayer(playerX, playerY, 1.0 / 60.0);
                             }
                         }
                     }
                     finally
                     {
-                        // Уменьшаем счетчик активных потоков
                         Interlocked.Decrement(ref _processingThreadCount);
                     }
                 });
             }
         }
 
-        /// <summary>
-        /// Освобождает ресурсы и останавливает фоновые потоки
-        /// </summary>
+        private void UpdateHealthKits(double deltaTime)
+        {
+            for (int i = _healthKits.Count - 1; i >= 0; i--)
+            {
+                bool isActive = _healthKits[i].Update(deltaTime);
+                if (!isActive)
+                {
+                    _worldContainer.Children.Remove(_healthKits[i].VisualElement);
+                    _healthKits.RemoveAt(i);
+                }
+            }
+        }
+
+        private void SpawnHealthKit(double x, double y)
+        {
+            HealthKit healthKit = new HealthKit(x, y, 20, _spriteManager);
+            _healthKits.Add(healthKit);
+            _worldContainer.Children.Add(healthKit.VisualElement);
+            Console.WriteLine($"Создана аптечка на позиции ({x}, {y})");
+        }
+
         public void Dispose()
         {
-            // Отменяем задачу обработки врагов
             if (_enemyProcessingCancellation != null)
             {
                 _enemyProcessingCancellation.Cancel();
                 
                 try
                 {
-                    // Ждем завершения задачи, но не более 1 секунды
                     if (_enemyProcessingTask != null)
                         _enemyProcessingTask.Wait(1000);
                 }
@@ -1027,7 +983,6 @@ namespace GunVault.GameEngine
                 _enemyProcessingCancellation = null;
             }
             
-            // Отписываемся от события восстановления врагов
             if (_chunkManager != null)
             {
                 _chunkManager.EnemiesReadyToRestore -= OnEnemiesReadyToRestore;
@@ -1037,12 +992,8 @@ namespace GunVault.GameEngine
             Console.WriteLine("GameManager ресурсы освобождены");
         }
 
-        /// <summary>
-        /// Обработчик события восстановления врагов
-        /// </summary>
         private void OnEnemiesReadyToRestore(object sender, ChunkEnemyRestoreEventArgs e)
         {
-            // Восстанавливаем врагов из их состояний
             RestoreEnemiesFromState(e.EnemiesToRestore);
         }
     }

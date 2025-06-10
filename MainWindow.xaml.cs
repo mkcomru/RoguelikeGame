@@ -125,6 +125,7 @@ public partial class MainWindow : Window
             _gameManager.ScoreChanged += GameManager_ScoreChanged;
             _gameManager.WeaponChanged += GameManager_WeaponChanged;
             _gameManager.EnemyKilled += GameManager_EnemyKilled;
+            _gameManager.HealthKitCollected += GameManager_HealthKitCollected;
             
             // Инициализируем игровой цикл
             _gameLoop = new GameLoop(_gameManager, GameCanvas.ActualWidth, GameCanvas.ActualHeight);
@@ -170,6 +171,13 @@ public partial class MainWindow : Window
     private void GameManager_EnemyKilled(object sender, EventArgs e)
     {
         _enemiesKilled++;
+    }
+    
+    // Обработка подбора аптечки
+    private void GameManager_HealthKitCollected(object sender, double healAmount)
+    {
+        // Показываем уведомление о восстановлении здоровья
+        ShowNotification($"Здоровье +{healAmount}");
     }
     
     // Показывает уведомление о получении нового оружия
@@ -534,6 +542,7 @@ public partial class MainWindow : Window
                 _gameManager.ScoreChanged += GameManager_ScoreChanged;
                 _gameManager.WeaponChanged += GameManager_WeaponChanged;
                 _gameManager.EnemyKilled += GameManager_EnemyKilled;
+                _gameManager.HealthKitCollected += GameManager_HealthKitCollected;
             });
             
             if (cancellationToken.IsCancellationRequested) return;
