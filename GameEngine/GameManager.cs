@@ -78,10 +78,10 @@ namespace GunVault.GameEngine
         private static readonly Dictionary<WeaponType, int> WeaponScoreThresholds = new Dictionary<WeaponType, int>
         {
             { WeaponType.Shotgun, 100 },
-            { WeaponType.AssaultRifle, 400 },
-            { WeaponType.MachineGun, 800 },
-            { WeaponType.RocketLauncher, 1000 },
-            { WeaponType.Laser, 1500 }
+            { WeaponType.AssaultRifle, 300 },
+            { WeaponType.MachineGun, 500 },
+            { WeaponType.RocketLauncher, 700 },
+            { WeaponType.Laser, 1000 }
         };
         
         // Отслеживание выпавшего оружия
