@@ -352,6 +352,9 @@ public partial class MainWindow : Window
         // Обновляем информацию об оружии
         WeaponText.Text = $"Оружие: {_player?.GetWeaponName()}";
         
+        // Обновляем счет
+        ScoreText.Text = $"Счёт: {_score}";
+        
         // Отображаем отладочную информацию, если включено
         if (_showDebugInfo)
         {

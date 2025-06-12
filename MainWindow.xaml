@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:GunVault"
         mc:Ignorable="d"
-        Title="GunVault - Рогалик" Height="720" Width="1280" 
+        Title="Shot It" Height="720" Width="1280" 
         WindowStartupLocation="CenterScreen"
         WindowState="Maximized"
         ResizeMode="CanResize"
@@ -18,35 +18,85 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         
-        <!-- Панель информации об игроке -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#333333" Height="70" Panel.ZIndex="1000">
-            <Grid Margin="20,5,0,5" Width="200">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+        <!-- Панель информации об игроке (обновленный дизайн) -->
+        <Border Grid.Row="0" Background="#1A1A2E" BorderBrush="#3A3A5E" BorderThickness="0,0,0,2" Panel.ZIndex="1000">
+            <Grid Margin="15,10" Height="70">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
                 
-                <!-- Здоровье игрока -->
-                <TextBlock Grid.Row="0" x:Name="HealthText" Text="Здоровье: 100/100" Foreground="White" FontSize="14" VerticalAlignment="Center"/>
-                <ProgressBar Grid.Row="1" x:Name="HealthBar" Height="8" Value="100" Maximum="100" Foreground="Green" Background="#33FFFFFF" Margin="0,2,0,5"/>
+                <!-- Левая часть - здоровье и броня -->
+                <Grid Grid.Column="0" Width="220">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- Здоровье игрока -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,2">
+                        <Path Data="M12,2.5L4.5,10L3,8.5L12,0L21,8.5L19.5,10L12,2.5M12,5.72L5.72,12L3,9.28L12,0.28L21,9.28L18.28,12L12,5.72M5,20V14H9V20H5M10,20V10H14V20H10M15,20V6H19V20H15Z" 
+                              Fill="#FF5252" Width="16" Height="16" Stretch="Uniform" Margin="0,0,5,0"/>
+                        <TextBlock x:Name="HealthText" Text="Здоровье: 100/100" Foreground="#FF5252" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    
+                    <Border Grid.Row="1" Background="#33000000" CornerRadius="2" Margin="0,0,0,8" Height="8">
+                        <ProgressBar x:Name="HealthBar" Height="8" Value="100" Maximum="100" Foreground="#FF5252" Background="Transparent" BorderThickness="0"/>
+                    </Border>
+                    
+                    <!-- Броня игрока -->
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,2">
+                        <Path Data="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,5A3,3 0 0,1 15,8A3,3 0 0,1 12,11A3,3 0 0,1 9,8A3,3 0 0,1 12,5Z" 
+                              Fill="#2196F3" Width="16" Height="16" Stretch="Uniform" Margin="0,0,5,0"/>
+                        <TextBlock x:Name="ArmorText" Text="Броня: 0/100" Foreground="#2196F3" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    
+                    <Border Grid.Row="3" Background="#33000000" CornerRadius="2" Height="8">
+                        <ProgressBar x:Name="ArmorBar" Height="8" Value="0" Maximum="100" Foreground="#2196F3" Background="Transparent" BorderThickness="0"/>
+                    </Border>
+                </Grid>
                 
-                <!-- Броня игрока -->
-                <TextBlock Grid.Row="2" x:Name="ArmorText" Text="Броня: 0/100" Foreground="White" FontSize="14" VerticalAlignment="Center"/>
-                <ProgressBar Grid.Row="3" x:Name="ArmorBar" Height="8" Value="0" Maximum="100" Foreground="DodgerBlue" Background="#33FFFFFF" Margin="0,2,0,0"/>
+                <!-- Центральная часть - оружие и патроны -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Border Background="#33FFFFFF" CornerRadius="5" Padding="12,8" Margin="0,0,15,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="M7,2V13H10V22L17,10H13L17,2H7Z" Fill="#FFD700" Width="24" Height="24" Stretch="Uniform" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="WeaponText" Text="Оружие: Пистолет" Foreground="White" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    
+                    <Border Background="#33FFFFFF" CornerRadius="5" Padding="12,8">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="M16,4L19,8L16,12V9H13V7H16V4M8,20V16L5,12L8,8V11H11V13H8V20M11,6H9V4H11V6M11,20H9V18H11V20M7,9H5V11H7V9M7,13H5V15H7V13M17,9H15V11H17V9M17,13H15V15H17V13Z" 
+                                  Fill="#FFA726" Width="24" Height="24" Stretch="Uniform" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="AmmoText" Text="Патроны: 12/12" Foreground="White" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                
+                <!-- Правая часть - счет и отладка -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Border Background="#4CAF50" CornerRadius="5" Padding="12,8" Margin="0,0,15,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z" 
+                                  Fill="White" Width="20" Height="20" Stretch="Uniform" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="ScoreText" Text="Счёт: 0" Foreground="White" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    
+                    <TextBlock x:Name="DebugInfoText" Text="Отладка" Foreground="#AAFFAA" FontSize="14" Margin="0,0,10,0" 
+                               VerticalAlignment="Center" Visibility="Collapsed"/>
+                </StackPanel>
             </Grid>
-            
-            <TextBlock x:Name="WeaponText" Text="Оружие: Пистолет" Foreground="White" FontSize="18" Margin="40,0,0,0" VerticalAlignment="Center"/>
-            <TextBlock x:Name="AmmoText" Text="Патроны: 12/12" Foreground="White" FontSize="18" Margin="40,0,0,0" VerticalAlignment="Center"/>
-            <TextBlock x:Name="ScoreText" Text="Счёт: 0" Foreground="White" FontSize="18" Margin="40,0,0,0" VerticalAlignment="Center"/>
-            <TextBlock x:Name="DebugInfoText" Text="Отладка" Foreground="#AAFFAA" FontSize="16" Margin="40,0,0,0" VerticalAlignment="Center" Visibility="Collapsed"/>
-        </StackPanel>
+        </Border>
         
         <!-- Игровое поле -->
-        <Canvas x:Name="GameCanvas" Grid.Row="1" Background="#222222" Focusable="True" Panel.ZIndex="0"/>
+        <Canvas x:Name="GameCanvas" Grid.Row="1" Background="#0F111A" Focusable="True" Panel.ZIndex="0"/>
         
-        <!-- Экран загрузки -->
+        <!-- Экран загрузки (обновленный) -->
         <Grid x:Name="LoadingScreen" Grid.Row="1" Visibility="Collapsed" Panel.ZIndex="2000">
             <!-- Градиентный фон -->
             <Grid.Background>
@@ -59,11 +109,6 @@
             <!-- Анимированные частицы (декоративные элементы) -->
             <Canvas x:Name="ParticlesCanvas">
                 <!-- Частицы добавляются динамически -->
-                <Ellipse Width="4" Height="4" Fill="#3498db" Canvas.Left="100" Canvas.Top="100" Opacity="0.6"/>
-                <Ellipse Width="3" Height="3" Fill="#2ecc71" Canvas.Left="200" Canvas.Top="150" Opacity="0.5"/>
-                <Ellipse Width="5" Height="5" Fill="#e74c3c" Canvas.Left="300" Canvas.Top="200" Opacity="0.7"/>
-                <Ellipse Width="2" Height="2" Fill="#f1c40f" Canvas.Left="400" Canvas.Top="250" Opacity="0.4"/>
-                <Ellipse Width="4" Height="4" Fill="#9b59b6" Canvas.Left="500" Canvas.Top="300" Opacity="0.6"/>
             </Canvas>
             
             <!-- Основной контент экрана загрузки -->
@@ -71,18 +116,18 @@
                 <!-- Логотип игры -->
                 <Border Width="200" Height="200" Background="Transparent" Margin="0,0,0,30" HorizontalAlignment="Center">
                     <Border.Effect>
-                        <DropShadowEffect Color="#FFD700" BlurRadius="20" ShadowDepth="0"/>
+                        <DropShadowEffect Color="#FF5252" BlurRadius="20" ShadowDepth="0"/>
                     </Border.Effect>
                     <Grid>
                         <!-- Внешнее кольцо -->
-                        <Ellipse Stroke="#FFD700" StrokeThickness="4" Width="200" Height="200">
+                        <Ellipse Stroke="#FF5252" StrokeThickness="4" Width="200" Height="200">
                             <Ellipse.Effect>
                                 <BlurEffect Radius="2"/>
                             </Ellipse.Effect>
                         </Ellipse>
                         
                         <!-- Внутреннее кольцо (вращающееся) -->
-                        <Ellipse x:Name="RotatingRing" Stroke="#FFD700" StrokeThickness="2" Width="160" Height="160">
+                        <Ellipse x:Name="RotatingRing" Stroke="#FF5252" StrokeThickness="2" Width="160" Height="160">
                             <Ellipse.RenderTransform>
                                 <RotateTransform x:Name="RingRotation" CenterX="80" CenterY="80"/>
                             </Ellipse.RenderTransform>
@@ -101,16 +146,15 @@
                         </Ellipse>
                         
                         <!-- Иконка оружия в центре -->
-                        <Path Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z" 
-                              Fill="#FFD700" Width="80" Height="80" Stretch="Uniform"/>
+                        <Path Data="M7,2V13H10V22L17,10H13L17,2H7Z" Fill="#FF5252" Width="80" Height="80" Stretch="Uniform"/>
                     </Grid>
                 </Border>
                 
                 <!-- Название игры -->
-                <TextBlock Text="GUN VAULT" Foreground="#FFD700" FontSize="48" FontWeight="Bold" 
+                <TextBlock Text="SHOT IT" Foreground="#FF5252" FontSize="64" FontWeight="Bold" 
                            HorizontalAlignment="Center" Margin="0,0,0,20">
                     <TextBlock.Effect>
-                        <DropShadowEffect Color="#FFD700" BlurRadius="10" ShadowDepth="0"/>
+                        <DropShadowEffect Color="#FF5252" BlurRadius="10" ShadowDepth="0"/>
                     </TextBlock.Effect>
                 </TextBlock>
                 
@@ -123,8 +167,8 @@
                 </TextBlock>
                 
                 <!-- Стилизованный прогресс-бар -->
-                <Border Width="500" Height="10" Background="#333333" CornerRadius="5" Margin="0,10,0,10">
-                    <Border x:Name="ProgressIndicator" Background="#FFD700" HorizontalAlignment="Left" Width="0" CornerRadius="5">
+                <Border Width="500" Height="10" Background="#33FFFFFF" CornerRadius="5" Margin="0,10,0,10">
+                    <Border x:Name="ProgressIndicator" Background="#FF5252" HorizontalAlignment="Left" Width="0" CornerRadius="5">
                         <Border.Effect>
                             <BlurEffect Radius="2"/>
                         </Border.Effect>
@@ -144,20 +188,34 @@
             <ProgressBar x:Name="LoadingProgressBar" Width="0" Height="0" Visibility="Collapsed"/>
         </Grid>
         
-        <!-- Уведомление о новом оружии -->
-        <Border x:Name="WeaponNotification" Grid.Row="1" Visibility="Collapsed" Background="#80000000" 
-                HorizontalAlignment="Center" VerticalAlignment="Top" CornerRadius="0,0,10,10"
-                Padding="20,15" MaxWidth="500" BorderBrush="#FFD700" BorderThickness="0,0,2,2"
-                Panel.ZIndex="1000" Margin="0,0,0,0">
-            <StackPanel>
-                <TextBlock Text="НОВОЕ ОРУЖИЕ!" Foreground="#FFD700" FontSize="20" FontWeight="Bold" 
-                           HorizontalAlignment="Center" Margin="0,0,0,10"/>
-                <TextBlock x:Name="NotificationWeaponName" Text="Название оружия" Foreground="White" 
-                           FontSize="18" HorizontalAlignment="Center"/>
-            </StackPanel>
+        <!-- Уведомление (обновленный дизайн) -->
+        <Border x:Name="WeaponNotification" Grid.Row="1" Visibility="Collapsed" 
+                HorizontalAlignment="Center" VerticalAlignment="Top" CornerRadius="8"
+                Panel.ZIndex="1000" Margin="0,20,0,0">
+            <Border.Effect>
+                <DropShadowEffect Color="Black" BlurRadius="15" ShadowDepth="2" Opacity="0.5"/>
+            </Border.Effect>
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#1A1A2E" Offset="0"/>
+                    <GradientStop Color="#0F0F1E" Offset="1"/>
+                </LinearGradientBrush>
+            </Border.Background>
+            <Grid>
+                <Border BorderBrush="#FF5252" BorderThickness="0,0,0,3" CornerRadius="8" Padding="20,15,20,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
+                            <Path Data="M7,2V13H10V22L17,10H13L17,2H7Z" Fill="#FF5252" Width="24" Height="24" Stretch="Uniform" Margin="0,0,10,0"/>
+                            <TextBlock Text="НОВОЕ ОРУЖИЕ!" Foreground="#FF5252" FontSize="20" FontWeight="Bold"/>
+                        </StackPanel>
+                        <TextBlock x:Name="NotificationWeaponName" Text="Название оружия" Foreground="White" 
+                                   FontSize="18" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
         </Border>
         
-        <!-- Экран смерти с меню -->
+        <!-- Экран смерти с меню (обновленный) -->
         <Grid x:Name="DeathScreen" Grid.Row="1" Visibility="Collapsed" Panel.ZIndex="3000">
             <!-- Затемнение экрана -->
             <Rectangle Fill="#CC000000" Width="{Binding ActualWidth, ElementName=GameCanvas}" 
@@ -166,10 +224,10 @@
             <!-- Контент экрана смерти -->
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                 <!-- Анимированный текст смерти -->
-                <TextBlock Text="ВЫ ПОГИБЛИ" Foreground="#FF0000" FontSize="48" FontWeight="Bold" 
+                <TextBlock Text="ВЫ ПОГИБЛИ" Foreground="#FF5252" FontSize="48" FontWeight="Bold" 
                            HorizontalAlignment="Center" Margin="0,0,0,50">
                     <TextBlock.Effect>
-                        <DropShadowEffect Color="#FF0000" BlurRadius="15" ShadowDepth="0"/>
+                        <DropShadowEffect Color="#FF5252" BlurRadius="15" ShadowDepth="0"/>
                     </TextBlock.Effect>
                     <TextBlock.RenderTransform>
                         <ScaleTransform x:Name="DeathTextScale" ScaleX="1" ScaleY="1" CenterX="120" CenterY="30"/>
@@ -193,9 +251,9 @@
                 </TextBlock>
                 
                 <!-- Статистика игры -->
-                <Border Background="#80000000" CornerRadius="10" Padding="30,20" Margin="0,0,0,40">
+                <Border Background="#1A1A2E" CornerRadius="10" Padding="30,20" Margin="0,0,0,40" BorderBrush="#3A3A5E" BorderThickness="1">
                     <StackPanel>
-                        <TextBlock Text="СТАТИСТИКА" Foreground="#FFFFFF" FontSize="24" FontWeight="Bold" 
+                        <TextBlock Text="СТАТИСТИКА" Foreground="#FF5252" FontSize="24" FontWeight="Bold" 
                                    HorizontalAlignment="Center" Margin="0,0,0,20"/>
                         <TextBlock x:Name="DeathScoreText" Text="Счёт: 0" Foreground="#FFFFFF" FontSize="18" 
                                    HorizontalAlignment="Left" Margin="0,5,0,5"/>
@@ -208,7 +266,7 @@
                 
                 <!-- Кнопки меню -->
                 <Button x:Name="RestartButton" Content="НАЧАТЬ СНАЧАЛА" Width="300" Height="50" 
-                        Background="#3498db" Foreground="White" FontSize="20" FontWeight="Bold" 
+                        Background="#FF5252" Foreground="White" FontSize="20" FontWeight="Bold" 
                         Margin="0,10,0,10" Click="RestartButton_Click">
                     <Button.Resources>
                         <Style TargetType="Border">
@@ -218,8 +276,8 @@
                 </Button>
                 
                 <Button x:Name="ExitButton" Content="ВЫЙТИ" Width="300" Height="50" 
-                        Background="#e74c3c" Foreground="White" FontSize="20" FontWeight="Bold" 
-                        Margin="0,10,0,10" Click="ExitButton_Click">
+                        Background="#1A1A2E" Foreground="White" FontSize="20" FontWeight="Bold" 
+                        Margin="0,10,0,10" Click="ExitButton_Click" BorderBrush="#3A3A5E" BorderThickness="1">
                     <Button.Resources>
                         <Style TargetType="Border">
                             <Setter Property="CornerRadius" Value="5"/>
