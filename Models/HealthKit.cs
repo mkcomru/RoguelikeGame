@@ -24,7 +24,7 @@ namespace GunVault.Models
         public CircleCollider Collider { get; private set; }
         
         // Время жизни аптечки в секундах
-        private const double LIFETIME = 15.0;
+        private const double LIFETIME = 25.0;
         
         // Анимация пульсации
         private double _pulsePhase = 0;
@@ -41,7 +41,7 @@ namespace GunVault.Models
         {
             X = x;
             Y = y;
-            Radius = 15;
+            Radius = 40;
             HealAmount = healAmount;
             CreationTime = DateTime.Now;
             

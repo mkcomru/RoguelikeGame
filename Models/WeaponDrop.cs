@@ -41,7 +41,7 @@ namespace GunVault.Models
         {
             X = x;
             Y = y;
-            Radius = 20;
+            Radius = 40;
             WeaponType = weaponType;
             CreationTime = DateTime.Now;
             

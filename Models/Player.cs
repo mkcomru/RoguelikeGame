@@ -14,8 +14,8 @@ namespace GunVault.Models
         private const double PLAYER_SPEED = 5.0;
         private const double PLAYER_RADIUS = 15.0;
         private const double PLAYER_ROTATION_SPEED = 10.0;
-        private const double FIXED_SPRITE_WIDTH = 60.0;
-        private const double FIXED_SPRITE_HEIGHT = 40.0;
+        private const double FIXED_SPRITE_WIDTH = 90.0;
+        private const double FIXED_SPRITE_HEIGHT = 60.0;
         private const double ROTATION_POINT_OFFSET = 0.25;
         private const double BASE_SPRITE_WIDTH = 46.0;
         private const double BASE_SPRITE_HEIGHT = 32.0;
