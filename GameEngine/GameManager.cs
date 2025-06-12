@@ -16,7 +16,7 @@ namespace GunVault.GameEngine
     public class GameManager
     {
         private Canvas _gameCanvas;
-        private Player _player;
+        public Player _player;
         private List<Enemy> _enemies;
         private List<Bullet> _bullets;
         private List<Explosion> _explosions;
@@ -25,6 +25,13 @@ namespace GunVault.GameEngine
         private List<HealthKit> _healthKits;
         private List<WeaponDrop> _weaponDrops;
         public LevelGenerator _levelGenerator;
+        private double _worldWidth;
+        private double _worldHeight;
+        private Canvas _worldContainer;
+        private Camera _camera;
+        private bool _showChunkBoundaries = false;
+        private double _enemyDespawnCheckTimer = 0;
+        private const double ENEMY_DESPAWN_CHECK_INTERVAL = 5.0;
         private double _gameWidth;
         private double _gameHeight;
         private Random _random;
@@ -39,7 +46,7 @@ namespace GunVault.GameEngine
         private const int SCORE_PER_MULTI_SPAWN = 200;
         private const int MAX_ENEMIES_ON_SCREEN = 20;
         private const double EXPLOSION_EXPANSION_SPEED = 150.0;
-        private SpriteManager _spriteManager;
+        public SpriteManager _spriteManager;
         public event EventHandler<int> ScoreChanged;
         public event EventHandler<string> WeaponChanged;
         public event EventHandler EnemyKilled;
@@ -47,22 +54,11 @@ namespace GunVault.GameEngine
         public event EventHandler<WeaponType> WeaponPickedUp;
 
         private ChunkManager _chunkManager;
-        private bool _showChunkBoundaries = false;
-
-        private double _worldWidth;
-        private double _worldHeight;
-        
-        private Camera _camera;
-        
-        private Canvas _worldContainer;
 
         private const double WORLD_SIZE_MULTIPLIER = 3.0;
 
         private const double ENEMY_DESPAWN_TIME = 3.0;
         
-        private double _enemyDespawnCheckTimer = 0.0;
-        private const double ENEMY_DESPAWN_CHECK_INTERVAL = 1.0;
-
         private bool _useMultithreading = true;
         private CancellationTokenSource _enemyProcessingCancellation;
         private Task _enemyProcessingTask;

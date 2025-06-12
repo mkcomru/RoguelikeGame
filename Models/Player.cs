@@ -21,6 +21,18 @@ namespace GunVault.Models
         private const double BASE_SPRITE_HEIGHT = 32.0;
         private const double TARGET_SPRITE_HEIGHT = PLAYER_RADIUS * 2.5;
         
+        // Константы для анимации
+        private const double ANIMATION_FRAME_TIME = 0.1; // Время между кадрами анимации в секундах
+        
+        // Имена спрайтов для разных состояний игрока
+        private const string SPRITE_PISTOL_STOP = "player_pistol_stop";
+        private const string SPRITE_PISTOL_RUN1 = "player_pistol_run_v1";
+        private const string SPRITE_PISTOL_RUN2 = "player_pistol_run_v2";
+        
+        private const string SPRITE_SHOTGUN_STOP = "player_shotgun_stop";
+        private const string SPRITE_SHOTGUN_RUN1 = "player_shotgun_run_v1";
+        private const string SPRITE_SHOTGUN_RUN2 = "player_shotgun_run_v2";
+
         public double X { get; private set; }
         public double Y { get; private set; }
         public double Health { get; private set; }
@@ -37,14 +49,26 @@ namespace GunVault.Models
         public double VelocityX { get; private set; }
         public double VelocityY { get; private set; }
         
+        // Переменные для анимации
+        private bool _isMoving = false;
+        private int _currentAnimFrame = 0;
+        private double _animTimer = 0;
+        private Canvas _parentCanvas;
+
         private double _currentAngle = 0;
         private double _targetAngle = 0;
         
         private static readonly Dictionary<string, Tuple<double, double>> SpriteProportions = new Dictionary<string, Tuple<double, double>>
         {
-            { "player_pistol", new Tuple<double, double>(46.0, 32.0) },
-            { "player_shotgun", new Tuple<double, double>(60.0, 32.0) },
-            { "player_assaultrifle", new Tuple<double, double>(60.0, 32.0) },
+            { "player_pistol", new Tuple<double, double>(1.0, 1.0) },
+            { "player_shotgun", new Tuple<double, double>(1.2, 1.0) },
+            { "player_assaultrifle", new Tuple<double, double>(1.2, 1.0) },
+            { "player_pistol_stop", new Tuple<double, double>(1.0, 1.0) },
+            { "player_pistol_run_v1", new Tuple<double, double>(1.0, 1.0) },
+            { "player_pistol_run_v2", new Tuple<double, double>(1.0, 1.0) },
+            { "player_shotgun_stop", new Tuple<double, double>(1.2, 1.0) },
+            { "player_shotgun_run_v1", new Tuple<double, double>(1.2, 1.0) },
+            { "player_shotgun_run_v2", new Tuple<double, double>(1.2, 1.0) }
         };
         
         public Player(double startX, double startY, SpriteManager spriteManager = null)
@@ -54,29 +78,32 @@ namespace GunVault.Models
             MaxHealth = 100;
             Health = MaxHealth;
             
-            InitializeCollider();
-            
-            if (spriteManager != null)
+            // Создаем визуальное представление игрока
+            if (spriteManager != null && spriteManager.HasSprite(SPRITE_PISTOL_STOP))
             {
-                var spriteSizes = CalculateSpriteSize("player_pistol");
-                PlayerShape = spriteManager.CreateSpriteImage("player_pistol", spriteSizes.Item1, spriteSizes.Item2);
+                var spriteSizes = CalculateSpriteSize(SPRITE_PISTOL_STOP);
+                PlayerShape = spriteManager.CreateSpriteImage(SPRITE_PISTOL_STOP, spriteSizes.Item1, spriteSizes.Item2);
                 
-                if (!(PlayerShape is Image))
+                if (PlayerShape is Image image)
                 {
-                    Console.WriteLine("Не удалось загрузить спрайт игрока, использую запасную форму");
-                    PlayerShape = CreateFallbackShape();
+                    Console.WriteLine($"Спрайт игрока загружен, размер: {image.Width}x{image.Height}");
                 }
             }
             else
             {
                 PlayerShape = CreateFallbackShape();
+                Console.WriteLine("Спрайт игрока не найден, использую запасную форму");
             }
             
+            // Инициализируем коллайдер
+            InitializeCollider();
+            
+            // Создаем начальное оружие (пистолет)
             CurrentWeapon = WeaponFactory.CreateWeapon(WeaponType.Pistol);
+            Console.WriteLine($"ИНИЦИАЛИЗАЦИЯ: Создан игрок с оружием {CurrentWeapon.Name}, _parentCanvas: {(_parentCanvas != null ? "установлен" : "не установлен")}");
             
+            // Обновляем позицию
             UpdatePosition();
-            
-            Console.WriteLine($"Игрок создан с фиксированным размером спрайта: {FIXED_SPRITE_WIDTH}x{FIXED_SPRITE_HEIGHT}");
         }
         
         private void InitializeCollider()
@@ -145,34 +172,18 @@ namespace GunVault.Models
 
         public void AddWeaponToCanvas(Canvas canvas)
         {
+            _parentCanvas = canvas;
+            Console.WriteLine($"УСТАНОВКА CANVAS: _parentCanvas установлен в методе AddWeaponToCanvas");
         }
         
         public void ChangeWeapon(Weapon newWeapon, Canvas canvas)
         {
-            CurrentWeapon = newWeapon;
-            Console.WriteLine($"Оружие изменено на {newWeapon.Name}");
-            
-            try
+            if (newWeapon != null)
             {
-                var mainWindow = Application.Current.MainWindow as GunVault.MainWindow;
-                SpriteManager spriteManager = null;
-                
-                if (mainWindow != null)
-                {
-                    var field = mainWindow.GetType().GetField("_spriteManager", 
-                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    
-                    if (field != null)
-                    {
-                        spriteManager = field.GetValue(mainWindow) as SpriteManager;
-                    }
-                }
-                
-                UpdatePlayerSprite(spriteManager, canvas);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при обновлении спрайта игрока: {ex.Message}");
+                CurrentWeapon = newWeapon;
+                _parentCanvas = canvas;
+                UpdatePlayerSprite(null, canvas);
+                Console.WriteLine($"Оружие изменено на {newWeapon.Name}");
             }
         }
         
@@ -250,39 +261,50 @@ namespace GunVault.Models
             double dx = 0;
             double dy = 0;
             
-            if (MovingUp)
-                dy -= PLAYER_SPEED;
-            if (MovingDown)
-                dy += PLAYER_SPEED;
-            if (MovingLeft)
-                dx -= PLAYER_SPEED;
-            if (MovingRight)
-                dx += PLAYER_SPEED;
+            if (MovingUp) dy -= PLAYER_SPEED;
+            if (MovingDown) dy += PLAYER_SPEED;
+            if (MovingLeft) dx -= PLAYER_SPEED;
+            if (MovingRight) dx += PLAYER_SPEED;
             
-            // Сохраняем текущую скорость для использования в предварительной загрузке чанков
+            // Если игрок движется по диагонали, нормализуем скорость
+            if (dx != 0 && dy != 0)
+            {
+                double length = Math.Sqrt(dx * dx + dy * dy);
+                dx = dx / length * PLAYER_SPEED;
+                dy = dy / length * PLAYER_SPEED;
+            }
+            
+            // Обновляем состояние движения для анимации
+            bool wasMoving = _isMoving;
+            _isMoving = (dx != 0 || dy != 0);
+            
+            Console.WriteLine($"ДВИЖЕНИЕ: dx={dx:F1}, dy={dy:F1}, _isMoving={_isMoving}, wasMoving={wasMoving}, MovingUp={MovingUp}, MovingDown={MovingDown}, MovingLeft={MovingLeft}, MovingRight={MovingRight}");
+            
+            // Если состояние движения изменилось, обновляем спрайт
+            if (wasMoving != _isMoving && _parentCanvas != null)
+            {
+                Console.WriteLine($"ИЗМЕНЕНИЕ СОСТОЯНИЯ ДВИЖЕНИЯ: {wasMoving} -> {_isMoving}, обновляю спрайт");
+                UpdatePlayerSprite(null, _parentCanvas);
+            }
+            
             VelocityX = dx;
             VelocityY = dy;
             
-            if (dx != 0 || dy != 0)
+            GameManager gameManager = GetGameManager();
+            
+            if (gameManager != null)
             {
-                // Нормализуем движение по диагонали
-                if (dx != 0 && dy != 0)
-                {
-                    double length = Math.Sqrt(dx * dx + dy * dy);
-                    dx = dx / length * PLAYER_SPEED;
-                    dy = dy / length * PLAYER_SPEED;
-                    
-                    // Обновляем нормализованную скорость
-                    VelocityX = dx;
-                    VelocityY = dy;
-                }
-                
-                // Реализуем продвинутую проверку с коллизиями и скользящими столкновениями
                 MoveWithSlidingCollisions(dx, dy);
-                
-                // Обновляем визуальную позицию
-                UpdatePosition();
             }
+            else
+            {
+                X += dx;
+                Y += dy;
+            }
+            
+            UpdatePosition();
+            
+            // Анимация обновляется в GameLoop.cs
         }
         
         /// <summary>
@@ -567,62 +589,112 @@ namespace GunVault.Models
 
         private void UpdatePlayerSprite(SpriteManager spriteManager, Canvas parentCanvas)
         {
-            if (spriteManager == null || CurrentWeapon == null)
-                return;
+            if (parentCanvas == null) return;
+            
+            _parentCanvas = parentCanvas;
+            
+            if (spriteManager == null)
+            {
+                // Пытаемся получить SpriteManager через GameManager
+                GameManager gameManager = GetGameManager();
+                if (gameManager != null)
+                {
+                    spriteManager = gameManager._spriteManager;
+                }
+            }
+            
+            if (spriteManager == null || CurrentWeapon == null) return;
             
             string spriteName;
             
-            switch (CurrentWeapon.Type)
-            {
-                case WeaponType.Pistol:
-                    spriteName = "player_pistol";
-                    break;
-                case WeaponType.Shotgun:
-                    spriteName = "player_shotgun";
-                    break;
-                case WeaponType.AssaultRifle:
-                    spriteName = "player_assaultrifle";
-                    break;
-                case WeaponType.Sniper:
-                    spriteName = "player_pistol";
-                    break;
-                case WeaponType.MachineGun:
-                    spriteName = "player_pistol";
-                    break;
-                case WeaponType.RocketLauncher:
-                    spriteName = "player_pistol";
-                    break;
-                case WeaponType.Laser:
-                    spriteName = "player_pistol";
-                    break;
-                default:
-                    spriteName = "player_pistol";
-                    break;
-            }
+            // Определяем базовое имя спрайта в зависимости от оружия
+            bool isHeavyWeapon = IsHeavyWeapon(CurrentWeapon.Type);
+            Console.WriteLine($"ОРУЖИЕ: {CurrentWeapon.Name}, тип: {CurrentWeapon.Type}, isHeavyWeapon: {isHeavyWeapon}");
             
-            if (parentCanvas != null)
+            // Выбираем спрайт в зависимости от состояния движения и типа оружия
+            if (_isMoving)
             {
-                parentCanvas.Children.Remove(PlayerShape);
-                
-                Console.WriteLine($"Обновляю спрайт игрока для оружия {CurrentWeapon.Name}, использую спрайт {spriteName}");
-                
-                var spriteSizes = CalculateSpriteSize(spriteName);
-                PlayerShape = spriteManager.CreateSpriteImage(spriteName, spriteSizes.Item1, spriteSizes.Item2);
-                
-                if (PlayerShape is Image image)
+                // Если движется, используем кадр анимации бега
+                if (isHeavyWeapon)
                 {
-                    // Размер коллайдера не меняем, он теперь фиксированный
-                    Console.WriteLine($"Спрайт загружен, размер: {image.Width}x{image.Height}, коллайдер сохраняет фиксированный размер");
+                    spriteName = _currentAnimFrame == 0 ? SPRITE_SHOTGUN_RUN1 : SPRITE_SHOTGUN_RUN2;
+                    Console.WriteLine($"СПРАЙТ ТЯЖЕЛОГО ОРУЖИЯ (БЕГ): {spriteName}, кадр: {_currentAnimFrame}");
                 }
                 else
                 {
-                    Console.WriteLine("Не удалось загрузить спрайт игрока, использую запасную форму");
-                    PlayerShape = CreateFallbackShape();
+                    spriteName = _currentAnimFrame == 0 ? SPRITE_PISTOL_RUN1 : SPRITE_PISTOL_RUN2;
+                    Console.WriteLine($"СПРАЙТ ПИСТОЛЕТА (БЕГ): {spriteName}, кадр: {_currentAnimFrame}");
+                }
+            }
+            else
+            {
+                // Если стоит на месте, используем спрайт стояния
+                spriteName = isHeavyWeapon ? SPRITE_SHOTGUN_STOP : SPRITE_PISTOL_STOP;
+                Console.WriteLine($"СПРАЙТ СТОЯНИЯ: {spriteName}, оружие: {CurrentWeapon.Name}");
+            }
+            
+            // Проверяем наличие спрайта
+            bool spriteExists = spriteManager.HasSprite(spriteName);
+            Console.WriteLine($"ПРОВЕРКА СПРАЙТА: {spriteName} - {(spriteExists ? "НАЙДЕН" : "НЕ НАЙДЕН")}");
+            
+            // Удаляем текущий спрайт с канваса
+            parentCanvas.Children.Remove(PlayerShape);
+            
+            // Создаем новый спрайт
+            UIElement newSprite;
+            
+            if (spriteManager.HasSprite(spriteName))
+            {
+                var spriteSizes = CalculateSpriteSize(spriteName);
+                newSprite = spriteManager.CreateSpriteImage(spriteName, spriteSizes.Item1, spriteSizes.Item2);
+                Console.WriteLine($"СОЗДАН НОВЫЙ СПРАЙТ: {spriteName}, размер: {spriteSizes.Item1}x{spriteSizes.Item2}");
+            }
+            else
+            {
+                // Если нужного спрайта нет, используем запасной вариант
+                Console.WriteLine($"СПРАЙТ {spriteName} НЕ НАЙДЕН, использую запасной");
+                
+                // Запасной вариант в зависимости от типа оружия
+                string fallbackSpriteName;
+                switch (CurrentWeapon.Type)
+                {
+                    case WeaponType.Pistol:
+                        fallbackSpriteName = "player_pistol";
+                        break;
+                    case WeaponType.Shotgun:
+                        fallbackSpriteName = "player_shotgun";
+                        break;
+                    case WeaponType.AssaultRifle:
+                        fallbackSpriteName = "player_assaultrifle";
+                        break;
+                    default:
+                        fallbackSpriteName = "player_pistol";
+                        break;
                 }
                 
-                parentCanvas.Children.Add(PlayerShape);
-                UpdatePosition();
+                if (spriteManager.HasSprite(fallbackSpriteName))
+                {
+                    var spriteSizes = CalculateSpriteSize(fallbackSpriteName);
+                    newSprite = spriteManager.CreateSpriteImage(fallbackSpriteName, spriteSizes.Item1, spriteSizes.Item2);
+                    Console.WriteLine($"СОЗДАН ЗАПАСНОЙ СПРАЙТ: {fallbackSpriteName}");
+                }
+                else
+                {
+                    Console.WriteLine("НЕ УДАЛОСЬ ЗАГРУЗИТЬ СПРАЙТ ИГРОКА, использую запасную форму");
+                    newSprite = CreateFallbackShape();
+                }
             }
+            
+            // Устанавливаем новый спрайт
+            PlayerShape = newSprite;
+            
+            // Добавляем спрайт на канвас
+            parentCanvas.Children.Add(PlayerShape);
+            
+            // Обновляем позицию
+            UpdatePosition();
+            
+            Console.WriteLine($"СПРАЙТ ОБНОВЛЕН: {spriteName}, _isMoving: {_isMoving}, _currentAnimFrame: {_currentAnimFrame}");
         }
 
         // Метод для добавления визуализации коллайдера на канвас
@@ -651,6 +723,64 @@ namespace GunVault.Models
                 Stroke = Brushes.Black,
                 StrokeThickness = 2
             };
+        }
+
+        // Метод для обновления анимации
+        public void UpdateAnimation(double deltaTime)
+        {
+            // Выводим состояние движения каждый раз
+            Console.WriteLine($"АНИМАЦИЯ: _isMoving={_isMoving}, _currentAnimFrame={_currentAnimFrame}, _animTimer={_animTimer:F3}, deltaTime={deltaTime:F3}");
+            
+            // Если игрок не движется, сбрасываем таймер и выходим
+            if (!_isMoving)
+            {
+                _animTimer = 0;
+                return;
+            }
+            
+            // Увеличиваем таймер анимации
+            _animTimer += deltaTime;
+            
+            // Если прошло достаточно времени, меняем кадр анимации
+            if (_animTimer >= ANIMATION_FRAME_TIME)
+            {
+                _animTimer = 0;
+                _currentAnimFrame = (_currentAnimFrame + 1) % 2; // Переключаемся между кадрами 0 и 1
+                
+                Console.WriteLine($"СМЕНА КАДРА: новый кадр = {_currentAnimFrame}");
+                
+                // Обновляем спрайт при смене кадра
+                if (_parentCanvas != null)
+                {
+                    UpdatePlayerSprite(null, _parentCanvas);
+                }
+            }
+        }
+
+        // Определяет, является ли оружие "тяжелым" (для выбора спрайта)
+        private bool IsHeavyWeapon(WeaponType weaponType)
+        {
+            bool result;
+            switch (weaponType)
+            {
+                case WeaponType.Pistol:
+                    result = false;
+                    break;
+                case WeaponType.Shotgun:
+                case WeaponType.AssaultRifle:
+                case WeaponType.MachineGun:
+                case WeaponType.RocketLauncher:
+                case WeaponType.Laser:
+                case WeaponType.Sniper:
+                    result = true;
+                    break;
+                default:
+                    result = false;
+                    break;
+            }
+            
+            Console.WriteLine($"ПРОВЕРКА ОРУЖИЯ: {weaponType} - {(result ? "тяжелое" : "легкое")}");
+            return result;
         }
     }
 } 

@@ -12,6 +12,12 @@ namespace GunVault.GameEngine
         private double _gameWidth;
         private double _gameHeight;
         private DateTime _lastTime;
+        
+        // Переменные для отслеживания FPS
+        private int _frameCount = 0;
+        private double _elapsedTime = 0;
+        private double _fps = 0;
+        
         public event EventHandler GameTick;
         
         public GameLoop(GameManager gameManager, double gameWidth, double gameHeight)
@@ -43,8 +49,33 @@ namespace GunVault.GameEngine
             DateTime currentTime = DateTime.Now;
             double deltaTime = (currentTime - _lastTime).TotalSeconds;
             _lastTime = currentTime;
-            deltaTime = Math.Min(deltaTime, 0.1);
+            deltaTime = Math.Min(deltaTime, 0.1); // Ограничиваем дельту времени для стабильности
+            
+            // Отслеживание FPS
+            _frameCount++;
+            _elapsedTime += deltaTime;
+            
+            if (_elapsedTime >= 1.0)
+            {
+                _fps = _frameCount / _elapsedTime;
+                _frameCount = 0;
+                _elapsedTime = 0;
+                
+                // Выводим FPS каждую секунду
+                Console.WriteLine($"FPS: {_fps:F1}");
+            }
+            
+            // Обновляем состояние игры
             _gameManager.Update(deltaTime);
+            
+            // Обновляем анимацию игрока
+            if (_gameManager != null && _gameManager._player != null)
+            {
+                Console.WriteLine($"АНИМАЦИЯ: вызов UpdateAnimation с deltaTime={deltaTime:F3}");
+                _gameManager._player.UpdateAnimation(deltaTime);
+            }
+            
+            // Вызываем событие тика
             GameTick?.Invoke(this, EventArgs.Empty);
         }
         

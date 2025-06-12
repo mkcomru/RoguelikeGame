@@ -65,6 +65,7 @@ namespace GunVault.GameEngine
             {
                 if (_spriteCache.ContainsKey(spriteName))
                 {
+                    Console.WriteLine($"Спрайт {spriteName} загружен из кэша");
                     return _spriteCache[spriteName];
                 }
                 
@@ -74,7 +75,37 @@ namespace GunVault.GameEngine
                     return null;
                 }
                 
+                // Сначала ищем в корневой папке спрайтов
                 string filePath = System.IO.Path.Combine(_spritesFolder, $"{spriteName}.png");
+                
+                // Если файл не найден в корневой папке, ищем в подпапках
+                if (!File.Exists(filePath))
+                {
+                    // Проверяем в подпапке player
+                    string playerPath = System.IO.Path.Combine(_spritesFolder, "player", $"{spriteName}.png");
+                    if (File.Exists(playerPath))
+                    {
+                        filePath = playerPath;
+                    }
+                    else
+                    {
+                        // Проверяем в подпапке enemyes
+                        string enemyPath = System.IO.Path.Combine(_spritesFolder, "enemyes", $"{spriteName}.png");
+                        if (File.Exists(enemyPath))
+                        {
+                            filePath = enemyPath;
+                        }
+                        else
+                        {
+                            // Проверяем в подпапке guns
+                            string gunPath = System.IO.Path.Combine(_spritesFolder, "guns", $"{spriteName}.png");
+                            if (File.Exists(gunPath))
+                            {
+                                filePath = gunPath;
+                            }
+                        }
+                    }
+                }
                 
                 if (!File.Exists(filePath))
                 {
@@ -92,6 +123,7 @@ namespace GunVault.GameEngine
                 bitmap.Freeze();
                 
                 _spriteCache[spriteName] = bitmap;
+                Console.WriteLine($"Спрайт {spriteName} успешно загружен, размер: {bitmap.PixelWidth}x{bitmap.PixelHeight}");
                 
                 return bitmap;
             }
@@ -109,21 +141,54 @@ namespace GunVault.GameEngine
         /// <returns>true, если спрайт доступен</returns>
         public bool HasSprite(string spriteName)
         {
-            // Если спрайт уже в кэше, он точно доступен
-            if (_spriteCache.ContainsKey(spriteName))
+            try
             {
-                return true;
+                if (_spriteCache.ContainsKey(spriteName))
+                {
+                    return true;
+                }
+                
+                if (!_initialized)
+                {
+                    Console.WriteLine($"Менеджер спрайтов не инициализирован, невозможно проверить наличие: {spriteName}");
+                    return false;
+                }
+                
+                // Проверяем в корневой папке
+                string filePath = System.IO.Path.Combine(_spritesFolder, $"{spriteName}.png");
+                bool exists = File.Exists(filePath);
+                
+                // Если не найден в корневой папке, проверяем в подпапках
+                if (!exists)
+                {
+                    // Проверяем в подпапке player
+                    string playerPath = System.IO.Path.Combine(_spritesFolder, "player", $"{spriteName}.png");
+                    exists = File.Exists(playerPath);
+                    
+                    if (!exists)
+                    {
+                        // Проверяем в подпапке enemyes
+                        string enemyPath = System.IO.Path.Combine(_spritesFolder, "enemyes", $"{spriteName}.png");
+                        exists = File.Exists(enemyPath);
+                        
+                        if (!exists)
+                        {
+                            // Проверяем в подпапке guns
+                            string gunPath = System.IO.Path.Combine(_spritesFolder, "guns", $"{spriteName}.png");
+                            exists = File.Exists(gunPath);
+                        }
+                    }
+                }
+                
+                Console.WriteLine($"Проверка спрайта {spriteName}: {(exists ? "найден" : "не найден")}");
+                
+                return exists;
             }
-            
-            // Если менеджер не инициализирован, спрайт недоступен
-            if (!_initialized)
+            catch (Exception ex)
             {
+                Console.WriteLine($"Ошибка при проверке наличия спрайта {spriteName}: {ex.Message}");
                 return false;
             }
-            
-            // Проверяем наличие файла спрайта
-            string filePath = System.IO.Path.Combine(_spritesFolder, $"{spriteName}.png");
-            return File.Exists(filePath);
         }
         
         public UIElement CreateSpriteImage(string spriteName, double width, double height)
@@ -196,6 +261,79 @@ namespace GunVault.GameEngine
                 Stroke = Brushes.Black,
                 StrokeThickness = 1
             };
+        }
+
+        public void Initialize(string spritesFolder)
+        {
+            _spritesFolder = spritesFolder;
+            _initialized = true;
+            _spriteCache = new Dictionary<string, BitmapImage>();
+            
+            Console.WriteLine($"SpriteManager инициализирован. Путь к папке спрайтов: {_spritesFolder}");
+            Console.WriteLine($"Полный путь: {System.IO.Path.GetFullPath(_spritesFolder)}");
+            
+            if (!Directory.Exists(_spritesFolder))
+            {
+                Console.WriteLine($"ВНИМАНИЕ: Папка спрайтов не существует: {_spritesFolder}");
+            }
+            else
+            {
+                // Выводим информацию о файлах в корневой папке
+                var rootFiles = Directory.GetFiles(_spritesFolder, "*.png");
+                Console.WriteLine($"Найдено {rootFiles.Length} PNG файлов в корневой папке спрайтов:");
+                foreach (var file in rootFiles)
+                {
+                    Console.WriteLine($"  - {System.IO.Path.GetFileName(file)}");
+                }
+                
+                // Проверяем подпапку player
+                string playerFolder = System.IO.Path.Combine(_spritesFolder, "player");
+                if (Directory.Exists(playerFolder))
+                {
+                    var playerFiles = Directory.GetFiles(playerFolder, "*.png");
+                    Console.WriteLine($"Найдено {playerFiles.Length} PNG файлов в папке player:");
+                    foreach (var file in playerFiles)
+                    {
+                        Console.WriteLine($"  - player/{System.IO.Path.GetFileName(file)}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Папка player не найдена");
+                }
+                
+                // Проверяем подпапку enemyes
+                string enemyFolder = System.IO.Path.Combine(_spritesFolder, "enemyes");
+                if (Directory.Exists(enemyFolder))
+                {
+                    var enemyFiles = Directory.GetFiles(enemyFolder, "*.png");
+                    Console.WriteLine($"Найдено {enemyFiles.Length} PNG файлов в папке enemyes:");
+                    foreach (var file in enemyFiles)
+                    {
+                        Console.WriteLine($"  - enemyes/{System.IO.Path.GetFileName(file)}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Папка enemyes не найдена");
+                }
+                
+                // Проверяем подпапку guns
+                string gunsFolder = System.IO.Path.Combine(_spritesFolder, "guns");
+                if (Directory.Exists(gunsFolder))
+                {
+                    var gunsFiles = Directory.GetFiles(gunsFolder, "*.png");
+                    Console.WriteLine($"Найдено {gunsFiles.Length} PNG файлов в папке guns:");
+                    foreach (var file in gunsFiles)
+                    {
+                        Console.WriteLine($"  - guns/{System.IO.Path.GetFileName(file)}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Папка guns не найдена");
+                }
+            }
         }
     }
 } 

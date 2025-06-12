@@ -106,6 +106,19 @@ public partial class MainWindow : Window
             double worldWidth = GameCanvas.ActualWidth * 3.0; // WORLD_SIZE_MULTIPLIER из GameManager
             double worldHeight = GameCanvas.ActualHeight * 3.0;
 
+            // Проверяем наличие спрайтов игрока
+            Console.WriteLine("Проверка наличия спрайтов игрока:");
+            string[] playerSprites = new string[] {
+                "player_pistol_stop", "player_pistol_run_v1", "player_pistol_run_v2",
+                "player_shotgun_stop", "player_shotgun_run_v1", "player_shotgun_run_v2"
+            };
+            
+            foreach (var spriteName in playerSprites)
+            {
+                bool exists = _spriteManager.HasSprite(spriteName);
+                Console.WriteLine($"Спрайт {spriteName}: {(exists ? "найден" : "НЕ НАЙДЕН")}");
+            }
+
             // Инициализируем игрока в центре МИРА, а не экрана
             double centerX = worldWidth / 2;
             double centerY = worldHeight / 2;
@@ -116,6 +129,9 @@ public partial class MainWindow : Window
             
             // Добавляем игрока на канвас
             GameCanvas.Children.Add(_player.PlayerShape);
+            
+            // Устанавливаем _parentCanvas для игрока
+            _player.AddWeaponToCanvas(GameCanvas);
             
             // Метод AddColliderVisualToCanvas все еще существует, но уже ничего не делает
             _player.AddColliderVisualToCanvas(GameCanvas);
@@ -391,55 +407,16 @@ public partial class MainWindow : Window
     // Обработка нажатия клавиш
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
+        Console.WriteLine($"Нажата клавиша: {e.Key}");
+        
         if (_inputHandler != null)
         {
             _inputHandler.HandleKeyDown(e);
         }
         
-        // Передаем событие нажатия клавиш менеджеру игры
-        if (_gameManager != null)
-        {
-            _gameManager.HandleKeyPress(e);
-        }
-        
-        // Отображение/скрытие отладочной информации
-        if (e.Key == Key.F3)
-        {
-            _showDebugInfo = !_showDebugInfo;
-        }
-    }
-    
-    // Обработка отпускания клавиш
-    private void Window_KeyUp(object sender, KeyEventArgs e)
-    {
-        if (_inputHandler != null)
-        {
-            _inputHandler.HandleKeyUp(e);
-        }
-    }
-
-    private void MainWindow_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
-    {
         // Обрабатываем клавиши только если игра инициализирована
         if (_gameManager != null && _player != null)
         {
-            // Обработка клавиш движения
-            switch (e.Key)
-            {
-                case Key.W:
-                _player.MovingUp = true;
-                break;
-                case Key.S:
-                _player.MovingDown = true;
-                break;
-                case Key.A:
-                _player.MovingLeft = true;
-                break;
-                case Key.D:
-                _player.MovingRight = true;
-                break;
-            }
-            
             // Обработка специальных клавиш
             if (e.Key == Key.R)
             {
@@ -449,10 +426,22 @@ public partial class MainWindow : Window
             else if (e.Key == Key.F3)
             {
                 _gameManager.ToggleChunkBoundaries();
+                _showDebugInfo = !_showDebugInfo;
             }
             
             // Передаем событие нажатия клавиши в GameManager
             _gameManager.HandleKeyPress(e);
+        }
+    }
+    
+    // Обработка отпускания клавиш
+    private void Window_KeyUp(object sender, KeyEventArgs e)
+    {
+        Console.WriteLine($"Отпущена клавиша: {e.Key}");
+        
+        if (_inputHandler != null)
+        {
+            _inputHandler.HandleKeyUp(e);
         }
     }
 
@@ -512,6 +501,25 @@ public partial class MainWindow : Window
             // Шаг 1: Инициализация базовых игровых компонентов
             Dispatcher.Invoke(() => {
                 LoadingStatusText.Text = "Инициализация игровых компонентов...";
+                UpdateLoadingProgress(10);
+                
+                // Проверяем наличие спрайтов игрока
+                Console.WriteLine("Проверка наличия спрайтов игрока в PreloadGame:");
+                string[] playerSprites = new string[] {
+                    "player_pistol_stop", "player_pistol_run_v1", "player_pistol_run_v2",
+                    "player_shotgun_stop", "player_shotgun_run_v1", "player_shotgun_run_v2"
+                };
+                
+                foreach (var spriteName in playerSprites)
+                {
+                    bool exists = _spriteManager.HasSprite(spriteName);
+                    Console.WriteLine($"Спрайт {spriteName}: {(exists ? "найден" : "НЕ НАЙДЕН")}");
+                }
+            });
+            
+            // Шаг 2: Инициализация базовых игровых компонентов
+            Dispatcher.Invoke(() => {
+                LoadingStatusText.Text = "Инициализация игровых компонентов...";
                 UpdateLoadingProgress(5);
             });
             
@@ -528,7 +536,7 @@ public partial class MainWindow : Window
             
             if (cancellationToken.IsCancellationRequested) return;
             
-            // Шаг 2: Создание игрока
+            // Шаг 3: Создание игрока
             Dispatcher.Invoke(() => {
                 LoadingStatusText.Text = "Создание игрока...";
                 UpdateLoadingProgress(10);
@@ -536,12 +544,13 @@ public partial class MainWindow : Window
                 _player = new Player(centerX, centerY, _spriteManager);
                 _inputHandler = new InputHandler(_player);
                 GameCanvas.Children.Add(_player.PlayerShape);
+                _player.AddWeaponToCanvas(GameCanvas);
                 _player.AddColliderVisualToCanvas(GameCanvas);
             });
             
             if (cancellationToken.IsCancellationRequested) return;
             
-            // Шаг 3: Инициализация менеджера игры
+            // Шаг 4: Инициализация менеджера игры
             Dispatcher.Invoke(() => {
                 LoadingStatusText.Text = "Инициализация игрового мира...";
                 UpdateLoadingProgress(20);
@@ -556,7 +565,7 @@ public partial class MainWindow : Window
             
             if (cancellationToken.IsCancellationRequested) return;
             
-            // Шаг 4: Предварительная загрузка чанков вокруг игрока
+            // Шаг 5: Предварительная загрузка чанков вокруг игрока
             Dispatcher.Invoke(() => {
                 LoadingStatusText.Text = "Предзагрузка мира вокруг игрока...";
                 UpdateLoadingProgress(30);
@@ -612,7 +621,7 @@ public partial class MainWindow : Window
             
             if (cancellationToken.IsCancellationRequested) return;
             
-            // Шаг 5: Завершение инициализации
+            // Шаг 6: Завершение инициализации
             Dispatcher.Invoke(() => {
                 LoadingStatusText.Text = "Запуск игрового цикла...";
                 UpdateLoadingProgress(95);
