@@ -633,7 +633,6 @@ public partial class MainWindow : Window
                     
                     Dispatcher.Invoke(() => {
                         UpdateLoadingProgress(progressPercent);
-                        LoadingStatusText.Text = $"Загружено чанков: {_loadedChunksCount}/{_totalChunksToLoad}";
                     });
                 }
             }
