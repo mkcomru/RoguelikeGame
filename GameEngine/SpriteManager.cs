@@ -52,6 +52,15 @@ namespace GunVault.GameEngine
                 
                 _initialized = true;
                 Console.WriteLine($"Папка со спрайтами найдена: {_spritesFolder}");
+
+                if (_initialized)
+                {
+                    string minePath = System.IO.Path.Combine(_spritesFolder, "mine.png");
+                    if (File.Exists(minePath))
+                    {
+                        RegisterSprite("mine", minePath);
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -333,6 +342,46 @@ namespace GunVault.GameEngine
                 {
                     Console.WriteLine("Папка guns не найдена");
                 }
+            }
+        }
+
+        public void RegisterSprite(string spriteName, string filePath)
+        {
+            try
+            {
+                if (_spriteCache.ContainsKey(spriteName))
+                {
+                    Console.WriteLine($"Спрайт {spriteName} уже зарегистрирован");
+                    return;
+                }
+                
+                if (!_initialized)
+                {
+                    Console.WriteLine($"Менеджер спрайтов не инициализирован, невозможно зарегистрировать: {spriteName}");
+                    return;
+                }
+                
+                if (!File.Exists(filePath))
+                {
+                    Console.WriteLine($"Файл спрайта не найден: {filePath}");
+                    return;
+                }
+                
+                Console.WriteLine($"Загружаю спрайт: {filePath}");
+                
+                BitmapImage bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.UriSource = new Uri(filePath, UriKind.Absolute);
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.EndInit();
+                bitmap.Freeze();
+                
+                _spriteCache[spriteName] = bitmap;
+                Console.WriteLine($"Спрайт {spriteName} успешно загружен, размер: {bitmap.PixelWidth}x{bitmap.PixelHeight}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при регистрации спрайта {spriteName}: {ex.Message}");
             }
         }
     }

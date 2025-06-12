@@ -92,6 +92,10 @@ namespace GunVault.GameEngine
         // Последний порог очков, при котором был выбран навык
         private int _lastSkillSelectionScore = 0;
 
+        private List<Mine> _mines;
+        private const double MINE_SPAWN_INTERVAL = 8.0;
+        private double _mineSpawnTimer = 0;
+
         public GameManager(Canvas gameCanvas, Player player, double gameWidth, double gameHeight, SpriteManager spriteManager = null)
         {
             _gameCanvas = gameCanvas;
@@ -153,6 +157,8 @@ namespace GunVault.GameEngine
                 StartEnemyProcessingTask();
                 Console.WriteLine("Многопоточная обработка врагов активирована");
             }
+
+            _mines = new List<Mine>();
         }
         
         private void InitializeChunks()
@@ -255,10 +261,18 @@ namespace GunVault.GameEngine
             UpdateHealthKits(deltaTime);
             UpdateWeaponDrops(deltaTime);
             UpdateArmorKits(deltaTime);
+            UpdateMines(deltaTime);
             CheckCollisions();
             
             // Проверяем, нужно ли создать выпад оружия
             CheckWeaponDrops();
+
+            _mineSpawnTimer -= deltaTime;
+            if (_mineSpawnTimer <= 0)
+            {
+                SpawnMineRandom();
+                _mineSpawnTimer = MINE_SPAWN_INTERVAL + _random.NextDouble() * 4.0;
+            }
         }
 
         public void HandleKeyPress(KeyEventArgs e)
@@ -700,6 +714,22 @@ namespace GunVault.GameEngine
                     
                     _worldContainer.Children.Remove(_armorKits[i].VisualElement);
                     _armorKits.RemoveAt(i);
+                }
+            }
+
+            // Проверка мин
+            for (int i = _mines.Count - 1; i >= 0; i--)
+            {
+                if (_mines[i].IsActive && _mines[i].CheckPlayerProximity(_player))
+                {
+                    _player.TakeDamage(_mines[i].Damage);
+                    // Визуальный эффект взрыва
+                    Explosion explosion = new Explosion(_mines[i].X, _mines[i].Y, 60, 200, 0); // 60 радиус, 200 скорость, 0 урона
+                    _explosions.Add(explosion);
+                    _worldContainer.Children.Add(explosion.ExplosionShape);
+                    _mines[i].Explode();
+                    _worldContainer.Children.Remove(_mines[i].VisualElement);
+                    _mines.RemoveAt(i);
                 }
             }
         }
@@ -1180,6 +1210,37 @@ namespace GunVault.GameEngine
                 SkillSelectionAvailable?.Invoke(this, _score);
                 
                 Console.WriteLine($"Доступен выбор навыка при {_score} очках");
+            }
+        }
+
+        private void UpdateMines(double deltaTime)
+        {
+            for (int i = _mines.Count - 1; i >= 0; i--)
+            {
+                if (!_mines[i].IsActive)
+                {
+                    _worldContainer.Children.Remove(_mines[i].VisualElement);
+                    _mines.RemoveAt(i);
+                    continue;
+                }
+                _mines[i].UpdatePosition();
+            }
+        }
+
+        private void SpawnMineRandom()
+        {
+            // Пытаемся найти свободное место для мины
+            for (int attempt = 0; attempt < 10; attempt++)
+            {
+                double x = _random.NextDouble() * _worldWidth;
+                double y = _random.NextDouble() * _worldHeight;
+                if (_levelGenerator.IsTileWalkable(x, y))
+                {
+                    Mine mine = new Mine(x, y, _spriteManager);
+                    _mines.Add(mine);
+                    _worldContainer.Children.Add(mine.VisualElement);
+                    break;
+                }
             }
         }
     }
