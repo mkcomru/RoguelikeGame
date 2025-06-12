@@ -19,8 +19,24 @@
         </Grid.RowDefinitions>
         
         <!-- Панель информации об игроке -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#333333" Height="50" Panel.ZIndex="1000">
-            <TextBlock x:Name="HealthText" Text="Здоровье: 100" Foreground="White" FontSize="18" Margin="20,0,0,0" VerticalAlignment="Center"/>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#333333" Height="70" Panel.ZIndex="1000">
+            <Grid Margin="20,5,0,5" Width="200">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <!-- Здоровье игрока -->
+                <TextBlock Grid.Row="0" x:Name="HealthText" Text="Здоровье: 100/100" Foreground="White" FontSize="14" VerticalAlignment="Center"/>
+                <ProgressBar Grid.Row="1" x:Name="HealthBar" Height="8" Value="100" Maximum="100" Foreground="Green" Background="#33FFFFFF" Margin="0,2,0,5"/>
+                
+                <!-- Броня игрока -->
+                <TextBlock Grid.Row="2" x:Name="ArmorText" Text="Броня: 0/100" Foreground="White" FontSize="14" VerticalAlignment="Center"/>
+                <ProgressBar Grid.Row="3" x:Name="ArmorBar" Height="8" Value="0" Maximum="100" Foreground="DodgerBlue" Background="#33FFFFFF" Margin="0,2,0,0"/>
+            </Grid>
+            
             <TextBlock x:Name="WeaponText" Text="Оружие: Пистолет" Foreground="White" FontSize="18" Margin="40,0,0,0" VerticalAlignment="Center"/>
             <TextBlock x:Name="AmmoText" Text="Патроны: 12/12" Foreground="White" FontSize="18" Margin="40,0,0,0" VerticalAlignment="Center"/>
             <TextBlock x:Name="ScoreText" Text="Счёт: 0" Foreground="White" FontSize="18" Margin="40,0,0,0" VerticalAlignment="Center"/>

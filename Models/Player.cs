@@ -37,6 +37,8 @@ namespace GunVault.Models
         public double Y { get; private set; }
         public double Health { get; private set; }
         public double MaxHealth { get; private set; }
+        public double Armor { get; private set; }
+        public double MaxArmor { get; private set; }
         public UIElement PlayerShape { get; private set; }
         public Weapon CurrentWeapon { get; private set; }
         public RectCollider Collider { get; private set; }
@@ -77,6 +79,8 @@ namespace GunVault.Models
             Y = startY;
             MaxHealth = 100;
             Health = MaxHealth;
+            MaxArmor = 100;
+            Armor = 0;
             
             // Создаем визуальное представление игрока
             if (spriteManager != null && spriteManager.HasSprite(SPRITE_PISTOL_STOP))
@@ -442,12 +446,34 @@ namespace GunVault.Models
         
         public void TakeDamage(double damage)
         {
+            // Сначала урон поглощается броней
+            if (Armor > 0)
+            {
+                if (Armor >= damage)
+                {
+                    Armor -= damage;
+                    return; // Весь урон поглощен броней
+                }
+                else
+                {
+                    // Часть урона поглощена броней, оставшийся урон идет по здоровью
+                    damage -= Armor;
+                    Armor = 0;
+                }
+            }
+            
+            // Оставшийся урон наносится здоровью
             Health = Math.Max(0, Health - damage);
         }
         
         public void Heal(double amount)
         {
             Health = Math.Min(MaxHealth, Health + amount);
+        }
+        
+        public void AddArmor(double amount)
+        {
+            Armor = Math.Min(MaxArmor, Armor + amount);
         }
         
         public List<Bullet> Shoot(Point targetPoint)

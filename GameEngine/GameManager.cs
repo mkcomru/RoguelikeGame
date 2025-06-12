@@ -24,6 +24,7 @@ namespace GunVault.GameEngine
         private List<BulletImpactEffect> _bulletImpactEffects;
         private List<HealthKit> _healthKits;
         private List<WeaponDrop> _weaponDrops;
+        private List<ArmorKit> _armorKits;
         public LevelGenerator _levelGenerator;
         private double _worldWidth;
         private double _worldHeight;
@@ -52,6 +53,7 @@ namespace GunVault.GameEngine
         public event EventHandler EnemyKilled;
         public event EventHandler<double> HealthKitCollected;
         public event EventHandler<WeaponType> WeaponPickedUp;
+        public event EventHandler<double> ArmorKitCollected;
 
         private ChunkManager _chunkManager;
 
@@ -69,6 +71,7 @@ namespace GunVault.GameEngine
 
         private int _enemyKillCounter = 0;
         private const int HEALTH_KIT_DROP_FREQUENCY = 10;
+        private const int ARMOR_KIT_DROP_FREQUENCY = 13;
 
         // Пороги очков для выпадения оружия
         private static readonly Dictionary<WeaponType, int> WeaponScoreThresholds = new Dictionary<WeaponType, int>
@@ -97,6 +100,7 @@ namespace GunVault.GameEngine
             _bulletImpactEffects = new List<BulletImpactEffect>();
             _healthKits = new List<HealthKit>();
             _weaponDrops = new List<WeaponDrop>();
+            _armorKits = new List<ArmorKit>();
             _random = new Random();
             _score = 0;
             _enemySpawnTimer = 0;
@@ -195,12 +199,6 @@ namespace GunVault.GameEngine
                 }
                 _enemySpawnTimer = _enemySpawnRate;
             }
-            Enemy nearestEnemy = FindNearestEnemy();
-            Point targetPoint = new Point(_player.X + 100, _player.Y);
-            if (nearestEnemy != null)
-            {
-                targetPoint = new Point(nearestEnemy.X, nearestEnemy.Y);
-            }
             
             foreach (var enemy in _enemies)
             {
@@ -222,23 +220,23 @@ namespace GunVault.GameEngine
             if (_player.GetCurrentWeapon().IsLaser)
             {
                 LaserBeam newLaser = _player.ShootLaser(worldMousePosition);
-                    if (newLaser != null)
-                    {
-                        _lasers.Add(newLaser);
+                if (newLaser != null)
+                {
+                    _lasers.Add(newLaser);
                     _worldContainer.Children.Add(newLaser.LaserLine);
                     _worldContainer.Children.Add(newLaser.LaserDot);
-                        
-                        ProcessLaserCollisions(newLaser);
-                    }
+                    
+                    ProcessLaserCollisions(newLaser);
                 }
-                else
-                {
+            }
+            else
+            {
                 List<Bullet> newBullets = _player.Shoot(worldMousePosition);
-                    if (newBullets != null && newBullets.Count > 0)
+                if (newBullets != null && newBullets.Count > 0)
+                {
+                    foreach (Bullet bullet in newBullets)
                     {
-                        foreach (Bullet bullet in newBullets)
-                        {
-                            _bullets.Add(bullet);
+                        _bullets.Add(bullet);
                         _worldContainer.Children.Add(bullet.BulletShape);
                     }
                 }
@@ -250,6 +248,7 @@ namespace GunVault.GameEngine
             UpdateBulletImpacts(deltaTime);
             UpdateHealthKits(deltaTime);
             UpdateWeaponDrops(deltaTime);
+            UpdateArmorKits(deltaTime);
             CheckCollisions();
             
             // Проверяем, нужно ли создать выпад оружия
@@ -576,6 +575,11 @@ namespace GunVault.GameEngine
                                 SpawnHealthKit(_enemies[j].X, _enemies[j].Y);
                             }
                             
+                            if (_enemyKillCounter % ARMOR_KIT_DROP_FREQUENCY == 0)
+                            {
+                                SpawnArmorKit(_enemies[j].X, _enemies[j].Y);
+                            }
+                            
                             // Проверяем, нужно ли создать выпадение оружия с этого врага
                             TryDropWeaponFromEnemy(_enemies[j].X, _enemies[j].Y);
                             
@@ -607,6 +611,11 @@ namespace GunVault.GameEngine
                             if (_enemyKillCounter % HEALTH_KIT_DROP_FREQUENCY == 0)
                             {
                                 SpawnHealthKit(_enemies[j].X, _enemies[j].Y);
+                            }
+                            
+                            if (_enemyKillCounter % ARMOR_KIT_DROP_FREQUENCY == 0)
+                            {
+                                SpawnArmorKit(_enemies[j].X, _enemies[j].Y);
                             }
                             
                             // Проверяем, нужно ли создать выпадение оружия с этого врага
@@ -671,6 +680,20 @@ namespace GunVault.GameEngine
                     
                     _worldContainer.Children.Remove(_weaponDrops[i].VisualElement);
                     _weaponDrops.RemoveAt(i);
+                }
+            }
+            
+            // Проверка коллизий с бронежилетами
+            for (int i = _armorKits.Count - 1; i >= 0; i--)
+            {
+                if (_armorKits[i].CollidesWithPlayer(_player))
+                {
+                    _player.AddArmor(_armorKits[i].ArmorAmount);
+                    
+                    ArmorKitCollected?.Invoke(this, _armorKits[i].ArmorAmount);
+                    
+                    _worldContainer.Children.Remove(_armorKits[i].VisualElement);
+                    _armorKits.RemoveAt(i);
                 }
             }
         }
@@ -745,6 +768,19 @@ namespace GunVault.GameEngine
                 {
                     _score += enemy.ScoreValue;
                     ScoreChanged?.Invoke(this, _score);
+                    
+                    _enemyKillCounter++;
+                    
+                    if (_enemyKillCounter % HEALTH_KIT_DROP_FREQUENCY == 0)
+                    {
+                        SpawnHealthKit(enemy.X, enemy.Y);
+                    }
+                    
+                    if (_enemyKillCounter % ARMOR_KIT_DROP_FREQUENCY == 0)
+                    {
+                        SpawnArmorKit(enemy.X, enemy.Y);
+                    }
+                    
                     _worldContainer.Children.Remove(enemy.EnemyShape);
                     _worldContainer.Children.Remove(enemy.HealthBar);
                     _enemies.Remove(enemy);
@@ -993,6 +1029,14 @@ namespace GunVault.GameEngine
             Console.WriteLine($"Создана аптечка на позиции ({x}, {y})");
         }
 
+        private void SpawnArmorKit(double x, double y)
+        {
+            ArmorKit armorKit = new ArmorKit(x, y, 20, _spriteManager);
+            _armorKits.Add(armorKit);
+            _worldContainer.Children.Add(armorKit.VisualElement);
+            Console.WriteLine($"Создан бронежилет на позиции ({x}, {y})");
+        }
+
         public void Dispose()
         {
             if (_enemyProcessingCancellation != null)
@@ -1086,6 +1130,19 @@ namespace GunVault.GameEngine
         public void ResetDroppedWeapons()
         {
             _droppedWeapons.Clear();
+        }
+
+        private void UpdateArmorKits(double deltaTime)
+        {
+            for (int i = _armorKits.Count - 1; i >= 0; i--)
+            {
+                bool isActive = _armorKits[i].Update(deltaTime);
+                if (!isActive)
+                {
+                    _worldContainer.Children.Remove(_armorKits[i].VisualElement);
+                    _armorKits.RemoveAt(i);
+                }
+            }
         }
     }
 } 

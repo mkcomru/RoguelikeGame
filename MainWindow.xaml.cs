@@ -8,6 +8,7 @@ using GunVault.Models;
 using GunVault.GameEngine;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Windows.Media;
 
 namespace GunVault;
 
@@ -143,6 +144,7 @@ public partial class MainWindow : Window
             _gameManager.EnemyKilled += GameManager_EnemyKilled;
             _gameManager.HealthKitCollected += GameManager_HealthKitCollected;
             _gameManager.WeaponPickedUp += GameManager_WeaponPickedUp;
+            _gameManager.ArmorKitCollected += GameManager_ArmorKitCollected;
             
             // Инициализируем игровой цикл
             _gameLoop = new GameLoop(_gameManager, GameCanvas.ActualWidth, GameCanvas.ActualHeight);
@@ -193,8 +195,8 @@ public partial class MainWindow : Window
     // Обработка подбора аптечки
     private void GameManager_HealthKitCollected(object sender, double healAmount)
     {
-        // Показываем уведомление о восстановлении здоровья
-        ShowNotification($"Здоровье +{healAmount}");
+        ShowNotification($"Подобрана аптечка (+{healAmount} HP)");
+        UpdatePlayerInfo();
     }
     
     // Обработка подбора оружия
@@ -202,6 +204,13 @@ public partial class MainWindow : Window
     {
         // Показываем уведомление о подборе оружия
         ShowNotification($"Подобрано: {WeaponFactory.GetWeaponName(weaponType)}");
+    }
+    
+    // Обработка подбора брони
+    private void GameManager_ArmorKitCollected(object sender, double amount)
+    {
+        ShowMessage($"Подобран бронежилет (+{amount} брони)", Colors.Blue);
+        UpdatePlayerInfo();
     }
     
     // Показывает уведомление о получении нового оружия
@@ -327,17 +336,21 @@ public partial class MainWindow : Window
     // Обновление отображаемой информации
     private void UpdatePlayerInfo()
     {
-        // Обновляем информацию о здоровье игрока
-        HealthText.Text = $"Здоровье: {_player?.Health:F0}";
+        if (_gameManager != null && _gameManager._player != null)
+        {
+            double healthPercent = (_gameManager._player.Health / _gameManager._player.MaxHealth) * 100;
+            HealthBar.Value = healthPercent;
+            HealthText.Text = $"Здоровье: {_gameManager._player.Health:F0}/{_gameManager._player.MaxHealth:F0}";
+            
+            double armorPercent = (_gameManager._player.Armor / _gameManager._player.MaxArmor) * 100;
+            ArmorBar.Value = armorPercent;
+            ArmorText.Text = $"Броня: {_gameManager._player.Armor:F0}/{_gameManager._player.MaxArmor:F0}";
+            
+            AmmoText.Text = _gameManager.GetAmmoInfo();
+        }
         
         // Обновляем информацию об оружии
         WeaponText.Text = $"Оружие: {_player?.GetWeaponName()}";
-        
-        // Обновляем информацию о боеприпасах
-        AmmoText.Text = $"Патроны: {_player?.GetAmmoInfo()}";
-        
-        // Обновляем счет
-        ScoreText.Text = $"Счёт: {_score}";
         
         // Отображаем отладочную информацию, если включено
         if (_showDebugInfo)
@@ -561,6 +574,7 @@ public partial class MainWindow : Window
                 _gameManager.EnemyKilled += GameManager_EnemyKilled;
                 _gameManager.HealthKitCollected += GameManager_HealthKitCollected;
                 _gameManager.WeaponPickedUp += GameManager_WeaponPickedUp;
+                _gameManager.ArmorKitCollected += GameManager_ArmorKitCollected;
             });
             
             if (cancellationToken.IsCancellationRequested) return;
@@ -850,5 +864,39 @@ public partial class MainWindow : Window
     {
         // Закрываем приложение
         Application.Current.Shutdown();
+    }
+
+    private void UpdatePlayerStats()
+    {
+        if (_gameManager != null && _gameManager._player != null)
+        {
+            double healthPercent = (_gameManager._player.Health / _gameManager._player.MaxHealth) * 100;
+            HealthBar.Value = healthPercent;
+            HealthText.Text = $"Здоровье: {_gameManager._player.Health:F0}/{_gameManager._player.MaxHealth:F0}";
+            
+            double armorPercent = (_gameManager._player.Armor / _gameManager._player.MaxArmor) * 100;
+            ArmorBar.Value = armorPercent;
+            ArmorText.Text = $"Броня: {_gameManager._player.Armor:F0}/{_gameManager._player.MaxArmor:F0}";
+            
+            AmmoText.Text = _gameManager.GetAmmoInfo();
+        }
+    }
+
+    private void OnHealthKitCollected(object sender, double amount)
+    {
+        ShowMessage($"Подобрана аптечка (+{amount} HP)", Colors.Green);
+        UpdatePlayerStats();
+    }
+
+    private void OnArmorKitCollected(object sender, double amount)
+    {
+        ShowMessage($"Подобран бронежилет (+{amount} брони)", Colors.Blue);
+        UpdatePlayerStats();
+    }
+
+    // Показывает уведомление с указанным цветом
+    private void ShowMessage(string message, Color color)
+    {
+        ShowNotification(message);
     }
 }
