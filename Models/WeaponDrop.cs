@@ -103,8 +103,8 @@ namespace GunVault.Models
             {
                 case WeaponType.Pistol: return "weapon_pistol";
                 case WeaponType.Shotgun: return "weapon_shotgun";
-                case WeaponType.AssaultRifle: return "weapon_assaultrifle";
-                case WeaponType.MachineGun: return "weapon_machinegun";
+                case WeaponType.AssaultRifle: return "weapon_assultrifle";
+                case WeaponType.MachineGun: return "weapon_mashinegun";
                 case WeaponType.RocketLauncher: return "weapon_rocketlauncher";
                 case WeaponType.Laser: return "weapon_laser";
                 case WeaponType.Sniper: return "weapon_sniper";
