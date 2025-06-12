@@ -60,6 +60,12 @@ namespace GunVault.Models
         private double _currentAngle = 0;
         private double _targetAngle = 0;
         
+        // Свойства для навыков
+        private bool _hasOrbitalShield = false;
+        private bool _hasDamageShield = false;
+        private double _baseSpeed = PLAYER_SPEED;
+        private double _speedMultiplier = 1.0;
+        
         private static readonly Dictionary<string, Tuple<double, double>> SpriteProportions = new Dictionary<string, Tuple<double, double>>
         {
             { "player_pistol", new Tuple<double, double>(1.0, 1.0) },
@@ -230,6 +236,12 @@ namespace GunVault.Models
                 Canvas.SetTop(PlayerShape, Y - PLAYER_RADIUS);
                 UpdateColliderPosition(false);
             }
+            
+            // Обновляем позицию защитного барьера, если он активен
+            if (_hasDamageShield && _damageShield != null)
+            {
+                UpdateDamageShield();
+            }
         }
         
         private double NormalizeAngle(double angle)
@@ -265,17 +277,17 @@ namespace GunVault.Models
             double dx = 0;
             double dy = 0;
             
-            if (MovingUp) dy -= PLAYER_SPEED;
-            if (MovingDown) dy += PLAYER_SPEED;
-            if (MovingLeft) dx -= PLAYER_SPEED;
-            if (MovingRight) dx += PLAYER_SPEED;
+            if (MovingUp) dy -= PLAYER_SPEED * _speedMultiplier;
+            if (MovingDown) dy += PLAYER_SPEED * _speedMultiplier;
+            if (MovingLeft) dx -= PLAYER_SPEED * _speedMultiplier;
+            if (MovingRight) dx += PLAYER_SPEED * _speedMultiplier;
             
             // Если игрок движется по диагонали, нормализуем скорость
             if (dx != 0 && dy != 0)
             {
                 double length = Math.Sqrt(dx * dx + dy * dy);
-                dx = dx / length * PLAYER_SPEED;
-                dy = dy / length * PLAYER_SPEED;
+                dx = dx / length * PLAYER_SPEED * _speedMultiplier;
+                dy = dy / length * PLAYER_SPEED * _speedMultiplier;
             }
             
             // Обновляем состояние движения для анимации
@@ -307,6 +319,12 @@ namespace GunVault.Models
             }
             
             UpdatePosition();
+            
+            // Обновляем орбитальный щит, если он активен
+            if (_hasOrbitalShield)
+            {
+                UpdateOrbitalShield();
+            }
             
             // Анимация обновляется в GameLoop.cs
         }
@@ -446,6 +464,21 @@ namespace GunVault.Models
         
         public void TakeDamage(double damage)
         {
+            // Если активен защитный барьер, блокируем весь урон и деактивируем барьер
+            if (_hasDamageShield)
+            {
+                _hasDamageShield = false;
+                Console.WriteLine("Защитный барьер поглотил весь урон и был разрушен");
+                return;
+            }
+            
+            // Проверяем орбитальный щит
+            if (_hasOrbitalShield)
+            {
+                damage *= 0.5; // Орбитальный щит снижает урон на 50%
+                Console.WriteLine($"Орбитальный щит снизил урон с {damage*2} до {damage}");
+            }
+            
             // Сначала урон поглощается броней
             if (Armor > 0)
             {
@@ -807,6 +840,167 @@ namespace GunVault.Models
             
             Console.WriteLine($"ПРОВЕРКА ОРУЖИЯ: {weaponType} - {(result ? "тяжелое" : "легкое")}");
             return result;
+        }
+
+        // Новые методы для поддержки навыков
+
+        /// <summary>
+        /// Увеличивает максимальное здоровье игрока
+        /// </summary>
+        /// <param name="amount">Количество добавляемого здоровья</param>
+        public void IncreaseMaxHealth(double amount)
+        {
+            MaxHealth += amount;
+            Health += amount; // Также увеличиваем текущее здоровье
+            Console.WriteLine($"Максимальное здоровье увеличено до {MaxHealth}");
+        }
+
+        /// <summary>
+        /// Увеличивает скорость игрока на указанный множитель
+        /// </summary>
+        /// <param name="multiplier">Множитель скорости (например, 0.15 для +15%)</param>
+        public void IncreaseSpeed(double multiplier)
+        {
+            _speedMultiplier += multiplier;
+            Console.WriteLine($"Скорость увеличена, текущий множитель: {_speedMultiplier}");
+        }
+
+        /// <summary>
+        /// Активирует орбитальный щит вокруг игрока
+        /// </summary>
+        public void ActivateOrbitalShield()
+        {
+            _hasOrbitalShield = true;
+            
+            // Создаем визуальное представление орбитального щита
+            CreateOrbitalShield();
+            
+            Console.WriteLine("Активирован орбитальный щит");
+        }
+
+        /// <summary>
+        /// Активирует щит, поглощающий 100% урона от одной атаки
+        /// </summary>
+        public void ActivateDamageShield()
+        {
+            _hasDamageShield = true;
+            
+            // Создаем визуальное представление защитного барьера
+            CreateDamageShield();
+            
+            Console.WriteLine("Активирован защитный барьер");
+        }
+
+        // Визуальные элементы для щитов
+        private Ellipse _orbitalShield1;
+        private Ellipse _orbitalShield2;
+        private Ellipse _damageShield;
+        private double _orbitalAngle = 0;
+
+        /// <summary>
+        /// Создает визуальное представление орбитального щита
+        /// </summary>
+        private void CreateOrbitalShield()
+        {
+            if (_parentCanvas == null) return;
+            
+            // Создаем две сферы, которые будут вращаться вокруг игрока
+            _orbitalShield1 = new Ellipse
+            {
+                Width = 25,
+                Height = 25,
+                Fill = new SolidColorBrush(Color.FromArgb(180, 111, 66, 193)),
+                Stroke = Brushes.White,
+                StrokeThickness = 2
+            };
+            
+            _orbitalShield2 = new Ellipse
+            {
+                Width = 25,
+                Height = 25,
+                Fill = new SolidColorBrush(Color.FromArgb(180, 111, 66, 193)),
+                Stroke = Brushes.White,
+                StrokeThickness = 2
+            };
+            
+            // Добавляем сферы на канвас
+            _parentCanvas.Children.Add(_orbitalShield1);
+            _parentCanvas.Children.Add(_orbitalShield2);
+            
+            // Устанавливаем начальные позиции
+            UpdateOrbitalShield();
+        }
+
+        /// <summary>
+        /// Обновляет позицию орбитальных щитов
+        /// </summary>
+        private void UpdateOrbitalShield()
+        {
+            if (_orbitalShield1 == null || _orbitalShield2 == null || _parentCanvas == null) return;
+            
+            // Увеличиваем угол для вращения
+            _orbitalAngle += 0.05;
+            if (_orbitalAngle > Math.PI * 2) _orbitalAngle -= Math.PI * 2;
+            
+            // Радиус вращения
+            double radius = 70;
+            
+            // Вычисляем позиции для двух сфер (противоположные стороны)
+            double x1 = X + Math.Cos(_orbitalAngle) * radius;
+            double y1 = Y + Math.Sin(_orbitalAngle) * radius;
+            
+            double x2 = X + Math.Cos(_orbitalAngle + Math.PI) * radius;
+            double y2 = Y + Math.Sin(_orbitalAngle + Math.PI) * radius;
+            
+            // Обновляем позиции сфер
+            Canvas.SetLeft(_orbitalShield1, x1 - _orbitalShield1.Width / 2);
+            Canvas.SetTop(_orbitalShield1, y1 - _orbitalShield1.Height / 2);
+            
+            Canvas.SetLeft(_orbitalShield2, x2 - _orbitalShield2.Width / 2);
+            Canvas.SetTop(_orbitalShield2, y2 - _orbitalShield2.Height / 2);
+        }
+
+        /// <summary>
+        /// Создает визуальное представление защитного барьера
+        /// </summary>
+        private void CreateDamageShield()
+        {
+            if (_parentCanvas == null) return;
+            
+            // Создаем щит вокруг игрока
+            _damageShield = new Ellipse
+            {
+                Width = PLAYER_RADIUS * 4,
+                Height = PLAYER_RADIUS * 4,
+                Fill = new SolidColorBrush(Color.FromArgb(100, 23, 162, 184)),
+                Stroke = new SolidColorBrush(Color.FromArgb(200, 23, 162, 184)),
+                StrokeThickness = 3
+            };
+            
+            // Добавляем щит на канвас
+            _parentCanvas.Children.Add(_damageShield);
+            
+            // Устанавливаем позицию
+            UpdateDamageShield();
+        }
+
+        /// <summary>
+        /// Обновляет позицию защитного барьера
+        /// </summary>
+        private void UpdateDamageShield()
+        {
+            if (_damageShield == null || _parentCanvas == null) return;
+            
+            // Обновляем позицию щита
+            Canvas.SetLeft(_damageShield, X - _damageShield.Width / 2);
+            Canvas.SetTop(_damageShield, Y - _damageShield.Height / 2);
+            
+            // Если щит больше не активен, удаляем его
+            if (!_hasDamageShield)
+            {
+                _parentCanvas.Children.Remove(_damageShield);
+                _damageShield = null;
+            }
         }
     }
 } 

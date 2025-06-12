@@ -145,6 +145,7 @@ public partial class MainWindow : Window
             _gameManager.HealthKitCollected += GameManager_HealthKitCollected;
             _gameManager.WeaponPickedUp += GameManager_WeaponPickedUp;
             _gameManager.ArmorKitCollected += GameManager_ArmorKitCollected;
+            _gameManager.SkillSelectionAvailable += GameManager_SkillSelectionAvailable;
             
             // Инициализируем игровой цикл
             _gameLoop = new GameLoop(_gameManager, GameCanvas.ActualWidth, GameCanvas.ActualHeight);
@@ -578,6 +579,7 @@ public partial class MainWindow : Window
                 _gameManager.HealthKitCollected += GameManager_HealthKitCollected;
                 _gameManager.WeaponPickedUp += GameManager_WeaponPickedUp;
                 _gameManager.ArmorKitCollected += GameManager_ArmorKitCollected;
+                _gameManager.SkillSelectionAvailable += GameManager_SkillSelectionAvailable;
             });
             
             if (cancellationToken.IsCancellationRequested) return;
@@ -901,5 +903,50 @@ public partial class MainWindow : Window
     private void ShowMessage(string message, Color color)
     {
         ShowNotification(message);
+    }
+
+    // Обработчик события доступности выбора навыка
+    private void GameManager_SkillSelectionAvailable(object sender, int score)
+    {
+        // Приостанавливаем игровой цикл
+        _gameLoop?.Pause();
+        
+        try
+        {
+            // Создаем и показываем окно выбора навыков
+            var skillWindow = new Views.SkillSelectionWindow(_player);
+            
+            // Подписываемся на событие выбора навыка
+            skillWindow.SkillSelected += (s, skill) => 
+            {
+                // Показываем уведомление о выбранном навыке
+                ShowNotification($"Получен навык: {skill.Name}");
+                
+                // Обновляем информацию об игроке
+                UpdatePlayerInfo();
+            };
+            
+            // Показываем окно как диалог
+            bool? result = skillWindow.ShowDialog();
+            
+            // Если окно было закрыто без выбора навыка, выбираем случайный
+            if (result != true)
+            {
+                // В этой реализации окно всегда закрывается с DialogResult = true
+                // поэтому этот код не должен выполняться
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при показе окна выбора навыков: {ex.Message}");
+        }
+        finally
+        {
+            // Возобновляем игровой цикл
+            _gameLoop?.Resume();
+            
+            // Возвращаем фокус на игровой канвас
+            GameCanvas.Focus();
+        }
     }
 }

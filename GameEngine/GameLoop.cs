@@ -18,6 +18,9 @@ namespace GunVault.GameEngine
         private double _elapsedTime = 0;
         private double _fps = 0;
         
+        private DateTime _lastUpdateTime;
+        private bool _isPaused = false;
+        
         public event EventHandler GameTick;
         
         public GameLoop(GameManager gameManager, double gameWidth, double gameHeight)
@@ -37,11 +40,40 @@ namespace GunVault.GameEngine
         {
             _lastTime = DateTime.Now;
             _gameTimer.Start();
+            _isPaused = false;
         }
         
         public void Stop()
         {
             _gameTimer.Stop();
+            _isPaused = false;
+        }
+        
+        /// <summary>
+        /// Приостанавливает игровой цикл
+        /// </summary>
+        public void Pause()
+        {
+            if (!_isPaused)
+            {
+                _gameTimer.Stop();
+                _isPaused = true;
+                Console.WriteLine("Игровой цикл приостановлен");
+            }
+        }
+        
+        /// <summary>
+        /// Возобновляет игровой цикл
+        /// </summary>
+        public void Resume()
+        {
+            if (_isPaused)
+            {
+                _lastTime = DateTime.Now;
+                _gameTimer.Start();
+                _isPaused = false;
+                Console.WriteLine("Игровой цикл возобновлен");
+            }
         }
         
         private void GameTimerTick(object sender, EventArgs e)

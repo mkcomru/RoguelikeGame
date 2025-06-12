@@ -54,6 +54,7 @@ namespace GunVault.GameEngine
         public event EventHandler<double> HealthKitCollected;
         public event EventHandler<WeaponType> WeaponPickedUp;
         public event EventHandler<double> ArmorKitCollected;
+        public event EventHandler<int> SkillSelectionAvailable;
 
         private ChunkManager _chunkManager;
 
@@ -85,6 +86,11 @@ namespace GunVault.GameEngine
         
         // Отслеживание выпавшего оружия
         private HashSet<WeaponType> _droppedWeapons = new HashSet<WeaponType>();
+
+        // Константа для очков, необходимых для выбора навыка
+        private const int SCORE_PER_SKILL_SELECTION = 500;
+        // Последний порог очков, при котором был выбран навык
+        private int _lastSkillSelectionScore = 0;
 
         public GameManager(Canvas gameCanvas, Player player, double gameWidth, double gameHeight, SpriteManager spriteManager = null)
         {
@@ -565,8 +571,8 @@ namespace GunVault.GameEngine
                         bulletHit = true;
                         if (!isEnemyAlive)
                         {
-                            _score += _enemies[j].ScoreValue;
-                            ScoreChanged?.Invoke(this, _score);
+                            int scoreToAdd = _enemies[j].ScoreValue;
+                            UpdateScore(_score + scoreToAdd);
                             
                             _enemyKillCounter++;
                             
@@ -603,8 +609,8 @@ namespace GunVault.GameEngine
                         bool isEnemyAlive = _enemies[j].TakeDamage(_explosions[i].Damage);
                         if (!isEnemyAlive)
                         {
-                            _score += _enemies[j].ScoreValue;
-                            ScoreChanged?.Invoke(this, _score);
+                            int scoreToAdd = _enemies[j].ScoreValue;
+                            UpdateScore(_score + scoreToAdd);
                             
                             _enemyKillCounter++;
                             
@@ -766,8 +772,8 @@ namespace GunVault.GameEngine
                 bool isEnemyAlive = enemy.TakeDamage(laser.Damage);
                 if (!isEnemyAlive)
                 {
-                    _score += enemy.ScoreValue;
-                    ScoreChanged?.Invoke(this, _score);
+                    int scoreToAdd = enemy.ScoreValue;
+                    UpdateScore(_score + scoreToAdd);
                     
                     _enemyKillCounter++;
                     
@@ -1142,6 +1148,38 @@ namespace GunVault.GameEngine
                     _worldContainer.Children.Remove(_armorKits[i].VisualElement);
                     _armorKits.RemoveAt(i);
                 }
+            }
+        }
+
+        // Обработка изменения счета
+        private void UpdateScore(int newScore)
+        {
+            int oldScore = _score;
+            _score = newScore;
+            
+            // Вызываем событие изменения счета
+            ScoreChanged?.Invoke(this, _score);
+            
+            // Проверяем, нужно ли показать окно выбора навыка
+            CheckSkillSelection(oldScore, newScore);
+        }
+
+        // Проверяет, нужно ли показать окно выбора навыка
+        private void CheckSkillSelection(int oldScore, int newScore)
+        {
+            // Проверяем, пересекли ли мы порог очков для выбора навыка
+            int oldThreshold = oldScore / SCORE_PER_SKILL_SELECTION;
+            int newThreshold = newScore / SCORE_PER_SKILL_SELECTION;
+            
+            if (newThreshold > oldThreshold && newScore > _lastSkillSelectionScore)
+            {
+                // Запоминаем текущий порог очков
+                _lastSkillSelectionScore = newThreshold * SCORE_PER_SKILL_SELECTION;
+                
+                // Вызываем событие доступности выбора навыка
+                SkillSelectionAvailable?.Invoke(this, _score);
+                
+                Console.WriteLine($"Доступен выбор навыка при {_score} очках");
             }
         }
     }
