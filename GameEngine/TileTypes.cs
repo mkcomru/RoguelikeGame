@@ -30,16 +30,16 @@ namespace GunVault.GameEngine
     
     public static class TileSettings
     {
-        public const int TILE_SIZE = 32;
+        public const int TILE_SIZE = 64;
         public const double TILE_OVERLAP = 1.0;
         
         public static readonly Dictionary<TileType, TileInfo> TileInfos = new Dictionary<TileType, TileInfo>()
         {
             { TileType.Grass, new TileInfo(TileType.Grass, "grass1", true, true) },
-            { TileType.Dirt, new TileInfo(TileType.Dirt, "dirt1", true, true) },
-            { TileType.Water, new TileInfo(TileType.Water, "water1", false, true) },
-            { TileType.Stone, new TileInfo(TileType.Stone, "stone1", false, true) },
-            { TileType.Sand, new TileInfo(TileType.Sand, "sand1", true, true) }
+            { TileType.Dirt, new TileInfo(TileType.Dirt, "dirty", true, true) },
+            { TileType.Water, new TileInfo(TileType.Water, "sea", false, true) },
+            { TileType.Stone, new TileInfo(TileType.Stone, "stone", false, true) },
+            { TileType.Sand, new TileInfo(TileType.Sand, "sand", true, true) }
         };
     }
 }

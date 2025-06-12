@@ -116,6 +116,7 @@ namespace GunVault.GameEngine
         {
             try
             {
+                Console.WriteLine($"Создаю тайл: {spriteName} в позиции ({x}, {y})");
                 UIElement tile = _spriteManager.CreateSpriteImage(spriteName, TileSettings.TILE_SIZE, TileSettings.TILE_SIZE);
                 
                 Canvas.SetLeft(tile, x);
