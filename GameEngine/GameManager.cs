@@ -631,28 +631,26 @@ namespace GunVault.GameEngine
                         {
                             int scoreToAdd = _enemies[j].ScoreValue;
                             UpdateScore(_score + scoreToAdd);
-                            
                             _enemyKillCounter++;
-                            
                             if (_enemyKillCounter % HEALTH_KIT_DROP_FREQUENCY == 0)
                             {
                                 SpawnHealthKit(_enemies[j].X, _enemies[j].Y);
                             }
-                            
                             if (_enemyKillCounter % ARMOR_KIT_DROP_FREQUENCY == 0)
                             {
                                 SpawnArmorKit(_enemies[j].X, _enemies[j].Y);
                             }
-                            
-                            // Проверяем, нужно ли создать выпадение оружия с этого врага
                             TryDropWeaponFromEnemy(_enemies[j].X, _enemies[j].Y);
-                            
                             _worldContainer.Children.Remove(_enemies[j].EnemyShape);
                             _worldContainer.Children.Remove(_enemies[j].HealthBar);
                             _enemies.RemoveAt(j);
                             EnemyKilled?.Invoke(this, EventArgs.Empty);
                         }
                     }
+                }
+                if (_explosions[i].Damage > 0 && _explosions[i].AffectsPlayer(_player))
+                {
+                    _player.TakeDamage(_explosions[i].Damage);
                 }
             }
             for (int i = _enemies.Count - 1; i >= 0; i--)
@@ -1294,7 +1292,7 @@ namespace GunVault.GameEngine
                 if (_barrels[i].IsDestroyed)
                 {
                     // Взрыв бочки
-                    Explosion explosion = new Explosion(_barrels[i].X, _barrels[i].Y, 60, 200, 30); // 30 урона по области
+                    Explosion explosion = new Explosion(_barrels[i].X, _barrels[i].Y, 90, 200, 30); // 30 урона по области
                     _explosions.Add(explosion);
                     _worldContainer.Children.Add(explosion.ExplosionShape);
                     _worldContainer.Children.Remove(_barrels[i].VisualElement);

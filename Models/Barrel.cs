@@ -14,8 +14,8 @@ namespace GunVault.Models
     {
         public double X { get; private set; }
         public double Y { get; private set; }
-        public double Width { get; private set; } = 48;
-        public double Height { get; private set; } = 64;
+        public double Width { get; private set; } = 60;
+        public double Height { get; private set; } = 80;
         public double Health { get; private set; } = 40;
         public bool IsDestroyed { get; private set; } = false;
         public UIElement VisualElement { get; private set; }

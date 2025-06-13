@@ -75,5 +75,14 @@ namespace GunVault.Models
             
             return distance <= CurrentRadius + enemy.Radius;
         }
+        
+        public bool AffectsPlayer(Player player)
+        {
+            double dx = X - player.X;
+            double dy = Y - player.Y;
+            double distance = Math.Sqrt(dx * dx + dy * dy);
+            // Радиус игрока 15.0 (PLAYER_RADIUS)
+            return distance <= CurrentRadius + 15.0;
+        }
     }
 } 
