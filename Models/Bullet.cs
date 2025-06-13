@@ -27,6 +27,8 @@ namespace GunVault.Models
         
         public TileType? CollidedWithTileType { get; private set; }
         
+        public CircleCollider Collider { get; private set; }
+        
         public Bullet(double startX, double startY, double angle, double speed, double damage, double range, WeaponType weaponType = WeaponType.Pistol)
         {
             X = startX;
@@ -38,6 +40,7 @@ namespace GunVault.Models
             Damage = damage;
             RemainingRange = range;
             CollidedWithTileType = null;
+            Collider = new CircleCollider(X, Y, BULLET_RADIUS);
             
             SolidColorBrush bulletFill = GetBulletColor(weaponType);
             
@@ -80,6 +83,7 @@ namespace GunVault.Models
         {
             Canvas.SetLeft(BulletShape, X - BULLET_RADIUS);
             Canvas.SetTop(BulletShape, Y - BULLET_RADIUS);
+            Collider.UpdatePosition(X, Y);
         }
         
         public bool Move(double deltaTime)

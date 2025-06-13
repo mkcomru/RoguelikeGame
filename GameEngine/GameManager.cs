@@ -96,6 +96,9 @@ namespace GunVault.GameEngine
         private const double MINE_SPAWN_INTERVAL = 8.0;
         private double _mineSpawnTimer = 0;
 
+        private List<Barrel> _barrels;
+        private const int BARREL_COUNT = 15;
+
         public GameManager(Canvas gameCanvas, Player player, double gameWidth, double gameHeight, SpriteManager spriteManager = null)
         {
             _gameCanvas = gameCanvas;
@@ -159,6 +162,8 @@ namespace GunVault.GameEngine
             }
 
             _mines = new List<Mine>();
+            _barrels = new List<Barrel>();
+            SpawnBarrels();
         }
         
         private void InitializeChunks()
@@ -262,6 +267,7 @@ namespace GunVault.GameEngine
             UpdateWeaponDrops(deltaTime);
             UpdateArmorKits(deltaTime);
             UpdateMines(deltaTime);
+            UpdateBarrels(deltaTime);
             CheckCollisions();
             
             // Проверяем, нужно ли создать выпад оружия
@@ -731,6 +737,24 @@ namespace GunVault.GameEngine
                     _worldContainer.Children.Remove(_mines[i].VisualElement);
                     _mines.RemoveAt(i);
                 }
+            }
+
+            // Проверка попадания пуль по бочкам
+            for (int i = _bullets.Count - 1; i >= 0; i--)
+            {
+                bool hitBarrel = false;
+                for (int j = _barrels.Count - 1; j >= 0; j--)
+                {
+                    if (_barrels[j].Collider.Intersects(_bullets[i].Collider))
+                    {
+                        _barrels[j].TakeDamage(_bullets[i].Damage);
+                        _worldContainer.Children.Remove(_bullets[i].BulletShape);
+                        _bullets.RemoveAt(i);
+                        hitBarrel = true;
+                        break;
+                    }
+                }
+                if (hitBarrel) break;
             }
         }
 
@@ -1240,6 +1264,45 @@ namespace GunVault.GameEngine
                     _mines.Add(mine);
                     _worldContainer.Children.Add(mine.VisualElement);
                     break;
+                }
+            }
+        }
+
+        private void SpawnBarrels()
+        {
+            for (int i = 0; i < BARREL_COUNT; i++)
+            {
+                for (int attempt = 0; attempt < 10; attempt++)
+                {
+                    double x = _random.NextDouble() * _worldWidth;
+                    double y = _random.NextDouble() * _worldHeight;
+                    if (_levelGenerator.IsTileWalkable(x, y))
+                    {
+                        Barrel barrel = new Barrel(x, y, _spriteManager);
+                        _barrels.Add(barrel);
+                        _worldContainer.Children.Add(barrel.VisualElement);
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void UpdateBarrels(double deltaTime)
+        {
+            for (int i = _barrels.Count - 1; i >= 0; i--)
+            {
+                if (_barrels[i].IsDestroyed)
+                {
+                    // Взрыв бочки
+                    Explosion explosion = new Explosion(_barrels[i].X, _barrels[i].Y, 60, 200, 30); // 30 урона по области
+                    _explosions.Add(explosion);
+                    _worldContainer.Children.Add(explosion.ExplosionShape);
+                    _worldContainer.Children.Remove(_barrels[i].VisualElement);
+                    _barrels.RemoveAt(i);
+                }
+                else
+                {
+                    _barrels[i].UpdatePosition();
                 }
             }
         }
