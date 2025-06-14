@@ -11,12 +11,18 @@ namespace GunVault.Models
     /// </summary>
     public enum SkillType
     {
+        // Навыки за счет
         HealthBoost,     // +20 к максимальному здоровью
         SpeedBoost,      // +15% к скорости
         InstantHeal,     // Мгновенная аптечка
         InstantArmor,    // Мгновенный бронежилет
         OrbitalShield,   // Сферы вокруг игрока
-        DamageShield     // Щит, поглощающий один удар
+        DamageShield,    // Щит, поглощающий один удар
+        
+        // Навыки за выполнение заданий
+        QuestHealthBoost,    // +10 к максимальному здоровью
+        QuestDamageBoost,    // +5% к урону
+        QuestSpeedBoost      // +2% к скорости
     }
 
     /// <summary>
@@ -29,10 +35,14 @@ namespace GunVault.Models
         public string Description { get; private set; }
         public string IconPath { get; private set; }
         public UIElement Icon { get; private set; }
+        public bool IsQuestSkill { get; private set; }
 
         public PlayerSkill(SkillType type)
         {
             Type = type;
+            IsQuestSkill = type == SkillType.QuestHealthBoost || 
+                           type == SkillType.QuestDamageBoost || 
+                           type == SkillType.QuestSpeedBoost;
             
             switch (type)
             {
@@ -43,7 +53,7 @@ namespace GunVault.Models
                     break;
                 case SkillType.SpeedBoost:
                     Name = "Ускорение";
-                    Description = "+15% к скорости передвижения";
+                    Description = "+3% к скорости передвижения";
                     IconPath = "speed.png";
                     break;
                 case SkillType.InstantHeal:
@@ -65,6 +75,23 @@ namespace GunVault.Models
                     Name = "Защитный барьер";
                     Description = "Блокирует 100% урона от одной атаки";
                     IconPath = "shield.png";
+                    break;
+                    
+                // Навыки за задания
+                case SkillType.QuestHealthBoost:
+                    Name = "Здоровье героя";
+                    Description = "+10 к максимальному здоровью";
+                    IconPath = "quest_health.png";
+                    break;
+                case SkillType.QuestDamageBoost:
+                    Name = "Сила удара";
+                    Description = "+5% к урону от оружия";
+                    IconPath = "quest_damage.png";
+                    break;
+                case SkillType.QuestSpeedBoost:
+                    Name = "Ловкость";
+                    Description = "+2% к скорости передвижения";
+                    IconPath = "quest_speed.png";
                     break;
             }
             
@@ -89,10 +116,12 @@ namespace GunVault.Models
             switch (Type)
             {
                 case SkillType.HealthBoost:
+                case SkillType.QuestHealthBoost:
                     border.Background = new SolidColorBrush(Color.FromRgb(220, 53, 69)); // Красный
                     border.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 120, 120));
                     break;
                 case SkillType.SpeedBoost:
+                case SkillType.QuestSpeedBoost:
                     border.Background = new SolidColorBrush(Color.FromRgb(40, 167, 69)); // Зеленый
                     border.BorderBrush = new SolidColorBrush(Color.FromRgb(120, 255, 120));
                     break;
@@ -111,6 +140,10 @@ namespace GunVault.Models
                 case SkillType.DamageShield:
                     border.Background = new SolidColorBrush(Color.FromRgb(23, 162, 184)); // Бирюзовый
                     border.BorderBrush = new SolidColorBrush(Color.FromRgb(120, 220, 255));
+                    break;
+                case SkillType.QuestDamageBoost:
+                    border.Background = new SolidColorBrush(Color.FromRgb(255, 99, 71)); // Томатный
+                    border.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 150, 130));
                     break;
             }
 
@@ -146,8 +179,8 @@ namespace GunVault.Models
                     return "Максимальное здоровье увеличено на 20";
                 
                 case SkillType.SpeedBoost:
-                    player.IncreaseSpeed(0.15);
-                    return "Скорость увеличена на 15%";
+                    player.IncreaseSpeed(0.03); // Изменено с 0.15 на 0.03 (3%)
+                    return "Скорость увеличена на 3%";
                 
                 case SkillType.InstantHeal:
                     double healAmount = player.MaxHealth * 0.5; // 50% от максимального здоровья
@@ -166,6 +199,19 @@ namespace GunVault.Models
                 case SkillType.DamageShield:
                     player.ActivateDamageShield();
                     return "Активирован защитный барьер";
+                
+                // Навыки за задания
+                case SkillType.QuestHealthBoost:
+                    player.IncreaseMaxHealth(10);
+                    return "Максимальное здоровье увеличено на 10";
+                    
+                case SkillType.QuestDamageBoost:
+                    player.IncreaseDamage(0.05f); // +5% к урону
+                    return "Урон от оружия увеличен на 5%";
+                    
+                case SkillType.QuestSpeedBoost:
+                    player.IncreaseSpeed(0.02); // +2% к скорости
+                    return "Скорость увеличена на 2%";
                 
                 default:
                     return "Неизвестный навык";

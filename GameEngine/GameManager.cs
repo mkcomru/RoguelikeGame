@@ -112,6 +112,9 @@ namespace GunVault.GameEngine
         private const int QUEST_SCORE_TARGET = 2000;
         private bool _questTimerActive = false;
         private HashSet<QuestType> _completedQuests = new HashSet<QuestType>();
+        // Добавляем переменные для блокировки взаимодействия с точками квестов
+        private DateTime _lastQuestInteractionTime = DateTime.MinValue;
+        private const double QUEST_INTERACTION_COOLDOWN = 3.0; // 3 секунды блокировки
 
         public GameManager(Canvas gameCanvas, Player player, double gameWidth, double gameHeight, SpriteManager spriteManager = null)
         {
@@ -710,6 +713,9 @@ namespace GunVault.GameEngine
                     
                     _worldContainer.Children.Remove(_healthKits[i].VisualElement);
                     _healthKits.RemoveAt(i);
+                    
+                    // Увеличиваем счетчик для задания на сбор аптечек
+                    IncrementHealthKitQuestProgress();
                 }
             }
             
@@ -1336,6 +1342,17 @@ namespace GunVault.GameEngine
         {
             if (_activeQuest == null)
             {
+                // Проверяем, не находимся ли мы в периоде блокировки взаимодействия
+                double secondsSinceLastInteraction = (DateTime.Now - _lastQuestInteractionTime).TotalSeconds;
+                if (secondsSinceLastInteraction < QUEST_INTERACTION_COOLDOWN)
+                {
+                    // Еще не прошло достаточно времени с последнего взаимодействия
+                    // Показываем сообщение о блокировке
+                    int remainingSeconds = (int)Math.Ceiling(QUEST_INTERACTION_COOLDOWN - secondsSinceLastInteraction);
+                    QuestProgressChanged?.Invoke(this, $"Подождите {remainingSeconds} сек перед следующим взаимодействием с заданием");
+                    return;
+                }
+                
                 // Проверяем, подошёл ли игрок к точке задания
                 foreach (var qp in _questPoints)
                 {
@@ -1344,14 +1361,25 @@ namespace GunVault.GameEngine
                         // Показываем окно выбора задания только если нет активного квеста
                         if (_activeQuest == null)
                         {
+                            // Запоминаем время взаимодействия
+                            _lastQuestInteractionTime = DateTime.Now;
+                            
                             Application.Current.Dispatcher.Invoke(() => {
-                                var questWindow = new Views.QuestSelectionWindow();
+                                var questWindow = new Views.QuestSelectionWindow(qp);
                                 bool? result = questWindow.ShowDialog();
                                 if (result == true && questWindow.SelectedQuest.HasValue)
                                 {
                                     StartQuest(questWindow.SelectedQuest.Value);
-                                    // Делаем все точки неактивными
+                                    // Делаем все точки неактивными на время выполнения квеста
                                     foreach (var q in _questPoints) { q.IsActive = false; q.VisualElement.Opacity = 0.3; }
+                                }
+                                else
+                                {
+                                    // Если игрок отказался от задания, обновляем время блокировки
+                                    _lastQuestInteractionTime = DateTime.Now;
+                                    
+                                    // Показываем сообщение о блокировке
+                                    QuestProgressChanged?.Invoke(this, $"Подождите {(int)QUEST_INTERACTION_COOLDOWN} сек перед следующим взаимодействием с заданием");
                                 }
                             });
                         }
@@ -1447,7 +1475,15 @@ namespace GunVault.GameEngine
             }
             
             Application.Current.Dispatcher.Invoke(() => {
-                MessageBox.Show($"Задание выполнено! Вы получили +1 уровень.", "Задание выполнено", MessageBoxButton.OK, MessageBoxImage.Information);
+                // Сначала показываем сообщение о выполнении задания
+                MessageBox.Show($"Задание выполнено! Выберите один из навыков в качестве награды.", 
+                               "Задание выполнено", 
+                               MessageBoxButton.OK, 
+                               MessageBoxImage.Information);
+                
+                // Затем показываем окно выбора навыка
+                var rewardWindow = new Views.QuestRewardWindow(_player);
+                rewardWindow.ShowDialog();
             });
             
             QuestProgressChanged?.Invoke(this, "Квест выполнен! Выберите следующее задание на точке.");
@@ -1459,6 +1495,17 @@ namespace GunVault.GameEngine
             { 
                 q.IsActive = !_completedQuests.Contains(q.Type);
                 q.VisualElement.Opacity = q.IsActive ? 1.0 : 0.3; 
+            }
+            
+            // Проверяем, не выполнены ли все квесты
+            if (_completedQuests.Count >= 3)
+            {
+                Application.Current.Dispatcher.Invoke(() => {
+                    MessageBox.Show("Поздравляем! Вы выполнили все доступные задания!", 
+                                   "Все задания выполнены", 
+                                   MessageBoxButton.OK, 
+                                   MessageBoxImage.Information);
+                });
             }
         }
 
@@ -1473,13 +1520,14 @@ namespace GunVault.GameEngine
             });
             
             // Сбрасываем состояние квеста
+            QuestType? failedQuestType = _activeQuest;
             _activeQuest = null;
             _questTimerActive = false;
             _questProgress = 0;
             
             QuestProgressChanged?.Invoke(this, "Квест провален: " + failMessage);
             
-            // Активируем только те точки квестов, которые еще не выполнены
+            // Активируем все точки квестов, кроме уже выполненных
             foreach (var q in _questPoints) 
             { 
                 q.IsActive = !_completedQuests.Contains(q.Type);
@@ -1489,9 +1537,12 @@ namespace GunVault.GameEngine
 
         private void SpawnQuestPoints()
         {
-            // 3 точки в случайных местах
+            // 3 точки в случайных местах, каждая с определенным типом задания
             for (int i = 0; i < 3; i++)
             {
+                // Определяем тип задания для этой точки
+                QuestType questType = (QuestType)i;
+                
                 // Пытаемся найти проходимое место для точки квеста
                 for (int attempt = 0; attempt < 10; attempt++)
                 {
@@ -1501,14 +1552,15 @@ namespace GunVault.GameEngine
                     // Проверяем, что точка находится на проходимой территории
                     if (_levelGenerator.IsTileWalkable(x, y))
                     {
-                        QuestType type = (QuestType)i;
-                        QuestPoint qp = new QuestPoint(x, y, type);
+                        QuestPoint qp = new QuestPoint(x, y, questType);
                         _questPoints.Add(qp);
                         _worldContainer.Children.Add(qp.VisualElement);
                         break;
                     }
                 }
             }
+            
+            Console.WriteLine($"Создано {_questPoints.Count} точек заданий");
         }
 
         private void DrawMiniMap()
@@ -1676,6 +1728,7 @@ namespace GunVault.GameEngine
             _activeQuest = null;
             _questProgress = 0;
             _questTimerActive = false;
+            _lastQuestInteractionTime = DateTime.MinValue; // Сбрасываем время блокировки
             
             // Активируем все точки квестов
             foreach (var q in _questPoints) 
@@ -1683,12 +1736,24 @@ namespace GunVault.GameEngine
                 q.IsActive = true;
                 q.VisualElement.Opacity = 1.0; 
             }
+            
+            Console.WriteLine("Сброшены все выполненные квесты");
         }
 
         // Добавляем новый метод для увеличения счетчика убитых врагов
         private void IncrementKillQuestProgress()
         {
             if (_activeQuest == QuestType.KillEnemies)
+            {
+                _questProgress++;
+                UpdateQuestProgress();
+            }
+        }
+        
+        // Добавляем метод для увеличения счетчика собранных аптечек
+        private void IncrementHealthKitQuestProgress()
+        {
+            if (_activeQuest == QuestType.CollectHealthKits)
             {
                 _questProgress++;
                 UpdateQuestProgress();

@@ -42,6 +42,9 @@ namespace GunVault.Models
         
         private double _currentAngle = 0;
         
+        private double _baseDamage; // Базовый урон оружия без множителей
+        private float _damageMultiplier = 1.0f; // Множитель урона от навыков
+        
         public bool IsLaser => Type == WeaponType.Laser;
         
         public Weapon(string name, WeaponType type, double damage, double fireRate, double range, 
@@ -50,6 +53,7 @@ namespace GunVault.Models
         {
             Name = name;
             Type = type;
+            _baseDamage = damage; // Сохраняем базовый урон
             Damage = damage;
             FireRate = fireRate;
             Range = range;
@@ -69,6 +73,17 @@ namespace GunVault.Models
             
             _reloadTimer = 0;
             IsReloading = false;
+        }
+        
+        /// <summary>
+        /// Обновляет множитель урона оружия
+        /// </summary>
+        /// <param name="multiplier">Новый множитель урона</param>
+        public void UpdateDamageMultiplier(float multiplier)
+        {
+            _damageMultiplier = multiplier;
+            Damage = _baseDamage * multiplier;
+            Console.WriteLine($"Урон оружия {Name} обновлен: {Damage:F1} (базовый: {_baseDamage:F1}, множитель: {multiplier:F2})");
         }
         
         public void Update(double deltaTime)

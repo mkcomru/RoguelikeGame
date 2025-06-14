@@ -65,6 +65,7 @@ namespace GunVault.Models
         private bool _hasDamageShield = false;
         private double _baseSpeed = PLAYER_SPEED;
         private double _speedMultiplier = 1.0;
+        private float _damageMultiplier = 1.0f; // Множитель урона от оружия
         
         private static readonly Dictionary<string, Tuple<double, double>> SpriteProportions = new Dictionary<string, Tuple<double, double>>
         {
@@ -193,6 +194,13 @@ namespace GunVault.Models
                 CurrentWeapon = newWeapon;
                 _parentCanvas = canvas;
                 UpdatePlayerSprite(null, canvas);
+                
+                // Применяем текущий множитель урона к новому оружию
+                if (_damageMultiplier > 1.0f)
+                {
+                    newWeapon.UpdateDamageMultiplier(_damageMultiplier);
+                }
+                
                 Console.WriteLine($"Оружие изменено на {newWeapon.Name}");
             }
         }
@@ -1000,6 +1008,21 @@ namespace GunVault.Models
             {
                 _parentCanvas.Children.Remove(_damageShield);
                 _damageShield = null;
+            }
+        }
+
+        /// <summary>
+        /// Увеличивает урон от оружия на указанный процент (0.05 = +5%)
+        /// </summary>
+        public void IncreaseDamage(float multiplier)
+        {
+            _damageMultiplier += multiplier;
+            Console.WriteLine($"Множитель урона увеличен до {_damageMultiplier:F2} (+{multiplier:P0})");
+            
+            // Обновляем урон текущего оружия
+            if (CurrentWeapon != null)
+            {
+                CurrentWeapon.UpdateDamageMultiplier(_damageMultiplier);
             }
         }
     }

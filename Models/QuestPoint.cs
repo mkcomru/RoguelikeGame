@@ -23,13 +23,57 @@ namespace GunVault.Models
         public bool IsActive { get; set; } = true;
         public UIElement VisualElement { get; private set; }
 
+        // Название квеста для отображения
+        public string QuestName { get; private set; }
+        
+        // Описание квеста для отображения
+        public string QuestDescription { get; private set; }
+        
+        // Цель квеста для отображения
+        public string QuestObjective { get; private set; }
+        
+        // Цвет квеста для отображения
+        public Color QuestColor { get; private set; }
+
         // Конструктор
         public QuestPoint(double x, double y, QuestType type)
         {
             X = x;
             Y = y;
             Type = type;
+            
+            // Устанавливаем информацию о квесте в зависимости от его типа
+            SetQuestInfo();
+            
             CreateVisual();
+        }
+        
+        // Устанавливаем информацию о квесте
+        private void SetQuestInfo()
+        {
+            switch (Type)
+            {
+                case QuestType.KillEnemies:
+                    QuestName = "ОХОТА";
+                    QuestDescription = "Уничтожьте указанное количество врагов в ограниченное время";
+                    QuestObjective = "Убить 7 врагов за 40 сек";
+                    QuestColor = Colors.Red;
+                    break;
+                    
+                case QuestType.CollectHealthKits:
+                    QuestName = "СБОР";
+                    QuestDescription = "Найдите и соберите указанное количество аптечек";
+                    QuestObjective = "Собрать 4 аптечки";
+                    QuestColor = Colors.Green;
+                    break;
+                    
+                case QuestType.GetScore:
+                    QuestName = "ОЧКИ";
+                    QuestDescription = "Наберите указанное количество очков, уничтожая врагов";
+                    QuestObjective = "Набрать 2000 очков";
+                    QuestColor = Color.FromRgb(255, 170, 0); // Orange
+                    break;
+            }
         }
 
         // Создание визуального представления точки квеста

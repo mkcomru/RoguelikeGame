@@ -10,11 +10,11 @@ none
 false
 TRACE;DEBUG;NET;NET9_0;NETCOREAPP
 D:\OOP\RoguelikeGame\App.xaml
-3-706321928
+4-2020578661
 
-38-1078940137
+39-937252071
 200-1310591092
-MainWindow.xaml;Views\QuestSelectionWindow.xaml;Views\SkillSelectionWindow.xaml;
+MainWindow.xaml;Views\QuestRewardWindow.xaml;Views\QuestSelectionWindow.xaml;Views\SkillSelectionWindow.xaml;
 
 False
 

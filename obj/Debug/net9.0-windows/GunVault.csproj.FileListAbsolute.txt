@@ -85,3 +85,5 @@ D:\OOP\RoguelikeGame\obj\Debug\net9.0-windows\Views\SkillSelectionWindow.baml
 D:\OOP\RoguelikeGame\obj\Debug\net9.0-windows\Views\SkillSelectionWindow.g.cs
 D:\OOP\RoguelikeGame\obj\Debug\net9.0-windows\Views\QuestSelectionWindow.baml
 D:\OOP\RoguelikeGame\obj\Debug\net9.0-windows\Views\QuestSelectionWindow.g.cs
+D:\OOP\RoguelikeGame\obj\Debug\net9.0-windows\Views\QuestRewardWindow.baml
+D:\OOP\RoguelikeGame\obj\Debug\net9.0-windows\Views\QuestRewardWindow.g.cs
