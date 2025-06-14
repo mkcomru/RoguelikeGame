@@ -55,6 +55,7 @@ namespace GunVault.GameEngine
         public event EventHandler<WeaponType> WeaponPickedUp;
         public event EventHandler<double> ArmorKitCollected;
         public event EventHandler<int> SkillSelectionAvailable;
+        public event EventHandler<string> QuestProgressChanged;
 
         private ChunkManager _chunkManager;
 
@@ -98,6 +99,19 @@ namespace GunVault.GameEngine
 
         private List<Barrel> _barrels;
         private const int BARREL_COUNT = 15;
+
+        private List<QuestPoint> _questPoints = new List<QuestPoint>();
+        private int _currentQuestLevel = 0;
+        private QuestType? _activeQuest = null;
+        private int _questProgress = 0;
+        private int _questTarget = 0;
+        private DateTime _questStartTime;
+        private const int QUEST_KILL_TARGET = 7;
+        private const int QUEST_KILL_TIME = 40;
+        private const int QUEST_HEALTHKIT_TARGET = 4;
+        private const int QUEST_SCORE_TARGET = 2000;
+        private bool _questTimerActive = false;
+        private HashSet<QuestType> _completedQuests = new HashSet<QuestType>();
 
         public GameManager(Canvas gameCanvas, Player player, double gameWidth, double gameHeight, SpriteManager spriteManager = null)
         {
@@ -164,6 +178,7 @@ namespace GunVault.GameEngine
             _mines = new List<Mine>();
             _barrels = new List<Barrel>();
             SpawnBarrels();
+            SpawnQuestPoints();
         }
         
         private void InitializeChunks()
@@ -279,6 +294,10 @@ namespace GunVault.GameEngine
                 SpawnMineRandom();
                 _mineSpawnTimer = MINE_SPAWN_INTERVAL + _random.NextDouble() * 4.0;
             }
+
+            UpdateQuestProgress();
+
+            DrawMiniMap();
         }
 
         public void HandleKeyPress(KeyEventArgs e)
@@ -613,6 +632,7 @@ namespace GunVault.GameEngine
                             _worldContainer.Children.Remove(_enemies[j].HealthBar);
                             _enemies.RemoveAt(j);
                             EnemyKilled?.Invoke(this, EventArgs.Empty);
+                            IncrementKillQuestProgress();
                         }
                         break;
                     }
@@ -645,6 +665,7 @@ namespace GunVault.GameEngine
                             _worldContainer.Children.Remove(_enemies[j].HealthBar);
                             _enemies.RemoveAt(j);
                             EnemyKilled?.Invoke(this, EventArgs.Empty);
+                            IncrementKillQuestProgress();
                         }
                     }
                 }
@@ -675,6 +696,7 @@ namespace GunVault.GameEngine
                     _worldContainer.Children.Remove(_enemies[i].HealthBar);
                     _enemies.RemoveAt(i);
                     EnemyKilled?.Invoke(this, EventArgs.Empty);
+                    IncrementKillQuestProgress();
                 }
             }
             
@@ -843,6 +865,7 @@ namespace GunVault.GameEngine
                     _worldContainer.Children.Remove(enemy.HealthBar);
                     _enemies.Remove(enemy);
                     EnemyKilled?.Invoke(this, EventArgs.Empty);
+                    IncrementKillQuestProgress();
                 }
             }
             if (sortedEnemies.Count > 0)
@@ -926,6 +949,7 @@ namespace GunVault.GameEngine
                     _worldContainer.Children.Remove(enemy.HealthBar);
                     _enemies.Remove(enemy);
                     EnemyKilled?.Invoke(this, EventArgs.Empty);
+                    IncrementKillQuestProgress();
                 }
                 
                 Console.WriteLine($"Кэшировано {enemiesToRemove.Count} врагов из устаревших неактивных чанков.");
@@ -1214,6 +1238,9 @@ namespace GunVault.GameEngine
             
             // Проверяем, нужно ли показать окно выбора навыка
             CheckSkillSelection(oldScore, newScore);
+
+            if (_activeQuest == QuestType.GetScore)
+                _questProgress = _score;
         }
 
         // Проверяет, нужно ли показать окно выбора навыка
@@ -1302,6 +1329,369 @@ namespace GunVault.GameEngine
                 {
                     _barrels[i].UpdatePosition();
                 }
+            }
+        }
+
+        private void UpdateQuestProgress()
+        {
+            if (_activeQuest == null)
+            {
+                // Проверяем, подошёл ли игрок к точке задания
+                foreach (var qp in _questPoints)
+                {
+                    if (qp.IsActive && Math.Sqrt(Math.Pow(_player.X - qp.X, 2) + Math.Pow(_player.Y - qp.Y, 2)) < 40)
+                    {
+                        // Показываем окно выбора задания только если нет активного квеста
+                        if (_activeQuest == null)
+                        {
+                            Application.Current.Dispatcher.Invoke(() => {
+                                var questWindow = new Views.QuestSelectionWindow();
+                                bool? result = questWindow.ShowDialog();
+                                if (result == true && questWindow.SelectedQuest.HasValue)
+                                {
+                                    StartQuest(questWindow.SelectedQuest.Value);
+                                    // Делаем все точки неактивными
+                                    foreach (var q in _questPoints) { q.IsActive = false; q.VisualElement.Opacity = 0.3; }
+                                }
+                            });
+                        }
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                // Обновляем прогресс квеста
+                string progressText = "";
+                if (_activeQuest == QuestType.KillEnemies)
+                {
+                    int killed = _questProgress;
+                    int left = QUEST_KILL_TARGET - killed;
+                    int seconds = Math.Max(0, QUEST_KILL_TIME - (int)(DateTime.Now - _questStartTime).TotalSeconds);
+                    progressText = $"Квест: Убейте {QUEST_KILL_TARGET} врагов за {QUEST_KILL_TIME} сек | Убито: {killed}/{QUEST_KILL_TARGET} | Время: {seconds} сек";
+                    
+                    // Проверяем, не истекло ли время для квеста с убийствами
+                    if (_questTimerActive && seconds <= 0 && _questProgress < QUEST_KILL_TARGET)
+                    {
+                        FailQuest("Время вышло! Вы не успели убить достаточно врагов.");
+                        return;
+                    }
+                }
+                else if (_activeQuest == QuestType.CollectHealthKits)
+                {
+                    progressText = $"Квест: Соберите 4 аптечки | Собрано: {_questProgress}/4";
+                }
+                else if (_activeQuest == QuestType.GetScore)
+                {
+                    progressText = $"Квест: Наберите 2000 очков | Очки: {_questProgress}/2000";
+                }
+                QuestProgressChanged?.Invoke(this, progressText);
+                
+                // Проверяем выполнение задания
+                if (_activeQuest == QuestType.KillEnemies && _questProgress >= QUEST_KILL_TARGET && _questTimerActive)
+                {
+                    if ((DateTime.Now - _questStartTime).TotalSeconds <= QUEST_KILL_TIME)
+                    {
+                        CompleteQuest();
+                    }
+                    else
+                    {
+                        // Время вышло — провал
+                        FailQuest("Время вышло! Вы не успели убить достаточно врагов.");
+                    }
+                }
+                else if (_activeQuest == QuestType.CollectHealthKits && _questProgress >= QUEST_HEALTHKIT_TARGET)
+                {
+                    CompleteQuest();
+                }
+                else if (_activeQuest == QuestType.GetScore && _questProgress >= QUEST_SCORE_TARGET)
+                {
+                    CompleteQuest();
+                }
+            }
+        }
+
+        private void StartQuest(QuestType type)
+        {
+            _activeQuest = type;
+            _questProgress = 0;
+            if (type == QuestType.KillEnemies)
+            {
+                _questTarget = QUEST_KILL_TARGET;
+                _questStartTime = DateTime.Now;
+                _questTimerActive = true;
+                QuestProgressChanged?.Invoke(this, $"Квест начат: Убейте {QUEST_KILL_TARGET} врагов за {QUEST_KILL_TIME} секунд!");
+            }
+            else if (type == QuestType.CollectHealthKits)
+            {
+                _questTarget = QUEST_HEALTHKIT_TARGET;
+                _questTimerActive = false;
+                QuestProgressChanged?.Invoke(this, "Квест начат: Соберите 4 аптечки!");
+            }
+            else if (type == QuestType.GetScore)
+            {
+                _questTarget = QUEST_SCORE_TARGET;
+                _questTimerActive = false;
+                QuestProgressChanged?.Invoke(this, "Квест начат: Наберите 2000 очков!");
+            }
+        }
+
+        private void CompleteQuest()
+        {
+            _currentQuestLevel++;
+            
+            // Добавляем квест в список выполненных
+            if (_activeQuest.HasValue)
+            {
+                _completedQuests.Add(_activeQuest.Value);
+            }
+            
+            Application.Current.Dispatcher.Invoke(() => {
+                MessageBox.Show($"Задание выполнено! Вы получили +1 уровень.", "Задание выполнено", MessageBoxButton.OK, MessageBoxImage.Information);
+            });
+            
+            QuestProgressChanged?.Invoke(this, "Квест выполнен! Выберите следующее задание на точке.");
+            _activeQuest = null;
+            _questTimerActive = false;
+            
+            // Активируем только те точки квестов, которые еще не выполнены
+            foreach (var q in _questPoints) 
+            { 
+                q.IsActive = !_completedQuests.Contains(q.Type);
+                q.VisualElement.Opacity = q.IsActive ? 1.0 : 0.3; 
+            }
+        }
+
+        private void FailQuest(string failMessage)
+        {
+            // Показываем сообщение о провале
+            Application.Current.Dispatcher.Invoke(() => {
+                MessageBox.Show(failMessage + "\n\nВы можете взять новое задание в точке квеста.", 
+                               "Квест провален", 
+                               MessageBoxButton.OK, 
+                               MessageBoxImage.Warning);
+            });
+            
+            // Сбрасываем состояние квеста
+            _activeQuest = null;
+            _questTimerActive = false;
+            _questProgress = 0;
+            
+            QuestProgressChanged?.Invoke(this, "Квест провален: " + failMessage);
+            
+            // Активируем только те точки квестов, которые еще не выполнены
+            foreach (var q in _questPoints) 
+            { 
+                q.IsActive = !_completedQuests.Contains(q.Type);
+                q.VisualElement.Opacity = q.IsActive ? 1.0 : 0.3; 
+            }
+        }
+
+        private void SpawnQuestPoints()
+        {
+            // 3 точки в случайных местах
+            for (int i = 0; i < 3; i++)
+            {
+                // Пытаемся найти проходимое место для точки квеста
+                for (int attempt = 0; attempt < 10; attempt++)
+                {
+                    double x = _random.NextDouble() * _worldWidth;
+                    double y = _random.NextDouble() * _worldHeight;
+                    
+                    // Проверяем, что точка находится на проходимой территории
+                    if (_levelGenerator.IsTileWalkable(x, y))
+                    {
+                        QuestType type = (QuestType)i;
+                        QuestPoint qp = new QuestPoint(x, y, type);
+                        _questPoints.Add(qp);
+                        _worldContainer.Children.Add(qp.VisualElement);
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void DrawMiniMap()
+        {
+            // Размер миникарты
+            double mapWidth = 200;
+            double mapHeight = 200;
+            double margin = 20;
+            double scaleX = mapWidth / _worldWidth;
+            double scaleY = mapHeight / _worldHeight;
+
+            // Удаляем старую миникарту (если есть)
+            var old = _gameCanvas.Children.OfType<Canvas>().FirstOrDefault(c => c.Tag as string == "MiniMap");
+            if (old != null) _gameCanvas.Children.Remove(old);
+
+            Canvas miniMap = new Canvas
+            {
+                Width = mapWidth,
+                Height = mapHeight + 30, // Увеличиваем высоту для заголовка
+                Background = new SolidColorBrush(Color.FromArgb(180, 20, 20, 20)),
+                Tag = "MiniMap"
+            };
+            Canvas.SetRight(miniMap, margin);
+            Canvas.SetTop(miniMap, margin);
+
+            // Добавляем рамку
+            Border mapBorder = new Border
+            {
+                Width = mapWidth,
+                Height = mapHeight,
+                BorderBrush = new SolidColorBrush(Colors.Gold),
+                BorderThickness = new Thickness(2),
+                Margin = new Thickness(0, 30, 0, 0)
+            };
+            miniMap.Children.Add(mapBorder);
+
+            // Заголовок
+            TextBlock titleText = new TextBlock
+            {
+                Text = "МИНИКАРТА",
+                FontSize = 16,
+                Foreground = new SolidColorBrush(Colors.Gold),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 5, 0, 0)
+            };
+            Canvas.SetLeft(titleText, (mapWidth - 100) / 2);
+            miniMap.Children.Add(titleText);
+
+            // Аптечки на карте
+            foreach (var kit in _healthKits)
+            {
+                Rectangle kitDot = new Rectangle
+                {
+                    Width = 8,
+                    Height = 8,
+                    Fill = Brushes.Green,
+                    Stroke = Brushes.White,
+                    StrokeThickness = 1
+                };
+                double kx = kit.X * scaleX;
+                double ky = kit.Y * scaleY;
+                Canvas.SetLeft(kitDot, kx - 4);
+                Canvas.SetTop(kitDot, ky - 4 + 30); // +30 для учета заголовка
+                miniMap.Children.Add(kitDot);
+            }
+
+            // Точки квестов
+            foreach (var qp in _questPoints)
+            {
+                // Маркер точки квеста
+                Ellipse questDot = new Ellipse
+                {
+                    Width = 14,
+                    Height = 14,
+                    Fill = qp.IsActive ? Brushes.Gold : Brushes.Gray,
+                    Opacity = qp.IsActive ? 1.0 : 0.4,
+                    Stroke = Brushes.White,
+                    StrokeThickness = 1
+                };
+                double qx = qp.X * scaleX;
+                double qy = qp.Y * scaleY;
+                Canvas.SetLeft(questDot, qx - 7);
+                Canvas.SetTop(questDot, qy - 7 + 30); // +30 для учета заголовка
+                miniMap.Children.Add(questDot);
+
+                // Подпись к точке квеста
+                string questLabel = "";
+                switch (qp.Type)
+                {
+                    case QuestType.KillEnemies:
+                        questLabel = "K";
+                        break;
+                    case QuestType.CollectHealthKits:
+                        questLabel = "H";
+                        break;
+                    case QuestType.GetScore:
+                        questLabel = "S";
+                        break;
+                }
+
+                TextBlock questText = new TextBlock
+                {
+                    Text = questLabel,
+                    FontSize = 10,
+                    Foreground = Brushes.Black,
+                    FontWeight = FontWeights.Bold
+                };
+                Canvas.SetLeft(questText, qx - 4);
+                Canvas.SetTop(questText, qy - 7 + 30);
+                miniMap.Children.Add(questText);
+            }
+
+            // Игрок
+            Ellipse playerDot = new Ellipse
+            {
+                Width = 12,
+                Height = 12,
+                Fill = Brushes.Cyan,
+                Stroke = Brushes.White,
+                StrokeThickness = 1
+            };
+            double px = _player.X * scaleX;
+            double py = _player.Y * scaleY;
+            Canvas.SetLeft(playerDot, px - 6);
+            Canvas.SetTop(playerDot, py - 6 + 30); // +30 для учета заголовка
+            miniMap.Children.Add(playerDot);
+
+            // Добавляем легенду
+            StackPanel legend = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 5, 0, 0)
+            };
+            Canvas.SetLeft(legend, 10);
+            Canvas.SetTop(legend, mapHeight + 5 + 30);
+
+            // Игрок (легенда)
+            Ellipse playerLegend = new Ellipse { Width = 8, Height = 8, Fill = Brushes.Cyan, Margin = new Thickness(0, 0, 3, 0) };
+            TextBlock playerText = new TextBlock { Text = "Игрок", FontSize = 10, Foreground = Brushes.White, Margin = new Thickness(0, 0, 10, 0) };
+            
+            // Квест (легенда)
+            Ellipse questLegend = new Ellipse { Width = 8, Height = 8, Fill = Brushes.Gold, Margin = new Thickness(0, 0, 3, 0) };
+            TextBlock questLegendText = new TextBlock { Text = "Квест", FontSize = 10, Foreground = Brushes.White };
+            
+            legend.Children.Add(playerLegend);
+            legend.Children.Add(playerText);
+            legend.Children.Add(questLegend);
+            legend.Children.Add(questLegendText);
+            
+            miniMap.Children.Add(legend);
+
+            // Добавляем миникарту на основной канвас, а не worldContainer
+            _gameCanvas.Children.Add(miniMap);
+            
+            // Устанавливаем высокий ZIndex, чтобы миникарта была поверх всех элементов
+            Panel.SetZIndex(miniMap, 1000);
+        }
+
+        // Сбросить выполненные квесты (для перезапуска игры)
+        public void ResetCompletedQuests()
+        {
+            _completedQuests.Clear();
+            _currentQuestLevel = 0;
+            _activeQuest = null;
+            _questProgress = 0;
+            _questTimerActive = false;
+            
+            // Активируем все точки квестов
+            foreach (var q in _questPoints) 
+            { 
+                q.IsActive = true;
+                q.VisualElement.Opacity = 1.0; 
+            }
+        }
+
+        // Добавляем новый метод для увеличения счетчика убитых врагов
+        private void IncrementKillQuestProgress()
+        {
+            if (_activeQuest == QuestType.KillEnemies)
+            {
+                _questProgress++;
+                UpdateQuestProgress();
             }
         }
     }

@@ -1,0 +1,92 @@
+<Window x:Class="GunVault.Views.QuestSelectionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Выбор задания" Height="350" Width="600" WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <Window.Resources>
+        <Style x:Key="QuestCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#333"/>
+            <Setter Property="CornerRadius" Value="15"/>
+            <Setter Property="BorderBrush" Value="#FFD700"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="Margin" Value="10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#444"/>
+                    <Setter Property="BorderBrush" Value="#FFF"/>
+                    <Setter Property="Effect">
+                        <Setter.Value>
+                            <DropShadowEffect Color="#FFD700" BlurRadius="15" ShadowDepth="0"/>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+    
+    <Grid Background="#222">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Заголовок -->
+        <Border Grid.Row="0" Background="#222" BorderBrush="#FFD700" BorderThickness="0,0,0,2" Margin="0,0,0,20">
+            <StackPanel Margin="20,20,20,10">
+                <TextBlock Text="ВЫБЕРИТЕ ЗАДАНИЕ" Foreground="#FFD700" FontSize="28" FontWeight="Bold" HorizontalAlignment="Center"/>
+                <TextBlock Text="Выполнение заданий даёт +1 уровень и выбор навыка" Foreground="White" FontSize="16" Margin="0,5,0,0" HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+        
+        <!-- Карточки заданий -->
+        <Grid Grid.Row="1" Margin="20,0,20,20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            
+            <!-- Задание: Убить врагов -->
+            <Border Grid.Column="0" Style="{StaticResource QuestCardStyle}" MouseDown="KillEnemies_MouseDown">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <Ellipse Width="60" Height="60" Fill="#FF4444" Margin="0,0,0,15">
+                        <Ellipse.Effect>
+                            <DropShadowEffect Color="#FF4444" BlurRadius="15" ShadowDepth="0"/>
+                        </Ellipse.Effect>
+                    </Ellipse>
+                    <TextBlock Text="ОХОТА" Foreground="White" FontSize="20" FontWeight="Bold" Margin="0,0,0,10" TextAlignment="Center"/>
+                    <TextBlock Text="Убить 7 врагов за 40 сек" Foreground="#FFD700" FontSize="16" TextAlignment="Center" Margin="10,0,10,10"/>
+                    <TextBlock Text="Уничтожьте указанное количество врагов в ограниченное время" Foreground="#CCC" FontSize="12" TextWrapping="Wrap" TextAlignment="Center" Margin="10,0,10,0"/>
+                </StackPanel>
+            </Border>
+            
+            <!-- Задание: Собрать аптечки -->
+            <Border Grid.Column="1" Style="{StaticResource QuestCardStyle}" MouseDown="CollectHealthKits_MouseDown">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <Ellipse Width="60" Height="60" Fill="#44FF44" Margin="0,0,0,15">
+                        <Ellipse.Effect>
+                            <DropShadowEffect Color="#44FF44" BlurRadius="15" ShadowDepth="0"/>
+                        </Ellipse.Effect>
+                    </Ellipse>
+                    <TextBlock Text="СБОР" Foreground="White" FontSize="20" FontWeight="Bold" Margin="0,0,0,10" TextAlignment="Center"/>
+                    <TextBlock Text="Собрать 4 аптечки" Foreground="#FFD700" FontSize="16" TextAlignment="Center" Margin="10,0,10,10"/>
+                    <TextBlock Text="Найдите и соберите указанное количество аптечек" Foreground="#CCC" FontSize="12" TextWrapping="Wrap" TextAlignment="Center" Margin="10,0,10,0"/>
+                </StackPanel>
+            </Border>
+            
+            <!-- Задание: Набрать очки -->
+            <Border Grid.Column="2" Style="{StaticResource QuestCardStyle}" MouseDown="GetScore_MouseDown">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <Ellipse Width="60" Height="60" Fill="#FFAA00" Margin="0,0,0,15">
+                        <Ellipse.Effect>
+                            <DropShadowEffect Color="#FFAA00" BlurRadius="15" ShadowDepth="0"/>
+                        </Ellipse.Effect>
+                    </Ellipse>
+                    <TextBlock Text="ОЧКИ" Foreground="White" FontSize="20" FontWeight="Bold" Margin="0,0,0,10" TextAlignment="Center"/>
+                    <TextBlock Text="Набрать 2000 очков" Foreground="#FFD700" FontSize="16" TextAlignment="Center" Margin="10,0,10,10"/>
+                    <TextBlock Text="Наберите указанное количество очков, уничтожая врагов" Foreground="#CCC" FontSize="12" TextWrapping="Wrap" TextAlignment="Center" Margin="10,0,10,0"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window> 

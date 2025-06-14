@@ -580,6 +580,7 @@ public partial class MainWindow : Window
                 _gameManager.WeaponPickedUp += GameManager_WeaponPickedUp;
                 _gameManager.ArmorKitCollected += GameManager_ArmorKitCollected;
                 _gameManager.SkillSelectionAvailable += GameManager_SkillSelectionAvailable;
+                _gameManager.QuestProgressChanged += GameManager_QuestProgressChanged;
             });
             
             if (cancellationToken.IsCancellationRequested) return;
@@ -683,6 +684,9 @@ public partial class MainWindow : Window
                 
                 // Сбрасываем отслеживание выпавшего оружия
                 _gameManager.ResetDroppedWeapons();
+                
+                // Сбрасываем выполненные квесты
+                _gameManager.ResetCompletedQuests();
                 
                 Console.WriteLine("Игра успешно инициализирована");
             });
@@ -946,6 +950,208 @@ public partial class MainWindow : Window
             
             // Возвращаем фокус на игровой канвас
             GameCanvas.Focus();
+        }
+    }
+
+    private void GameManager_QuestProgressChanged(object sender, string text)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            if (!string.IsNullOrEmpty(text))
+            {
+                QuestProgressText.Text = text;
+                QuestNotificationBorder.Visibility = Visibility.Visible;
+                
+                // Добавляем эффект появления, если уведомление было скрыто
+                if (QuestNotificationBorder.Opacity < 1)
+                {
+                    DoubleAnimation fadeIn = new DoubleAnimation
+                    {
+                        From = 0.7,
+                        To = 1.0,
+                        Duration = TimeSpan.FromSeconds(0.3)
+                    };
+                    QuestNotificationBorder.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+                }
+                
+                // Обновляем индикатор прогресса на основе текста
+                UpdateQuestProgressIndicator(text);
+                
+                // Если это уведомление о выполнении или провале квеста, добавляем подсветку
+                if (text.Contains("выполнен") || text.Contains("Квест выполнен"))
+                {
+                    QuestNotificationBorder.Background = new SolidColorBrush(Color.FromArgb(80, 50, 205, 50)); // Зеленый
+                    
+                    // Анимация завершения - заполняем индикатор до 100%
+                    DoubleAnimation completeAnimation = new DoubleAnimation
+                    {
+                        To = (QuestProgressIndicator.Parent as FrameworkElement)?.ActualWidth ?? 400,
+                        Duration = TimeSpan.FromSeconds(0.5),
+                        EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+                    };
+                    QuestProgressIndicator.BeginAnimation(FrameworkElement.WidthProperty, completeAnimation);
+                }
+                else if (text.Contains("провален"))
+                {
+                    QuestNotificationBorder.Background = new SolidColorBrush(Color.FromArgb(80, 220, 20, 60)); // Красный
+                    
+                    // Анимация провала - мигаем индикатором
+                    DoubleAnimation failAnimation = new DoubleAnimation
+                    {
+                        From = QuestProgressIndicator.Width,
+                        To = 0,
+                        Duration = TimeSpan.FromSeconds(0.7),
+                        EasingFunction = new ElasticEase { EasingMode = EasingMode.EaseOut }
+                    };
+                    QuestProgressIndicator.BeginAnimation(FrameworkElement.WidthProperty, failAnimation);
+                }
+                else if (text.Contains("начат"))
+                {
+                    QuestNotificationBorder.Background = new SolidColorBrush(Color.FromArgb(80, 255, 215, 0)); // Золотой
+                    
+                    // Анимация мигания при начале квеста
+                    ColorAnimation blinkAnimation = new ColorAnimation
+                    {
+                        From = Color.FromArgb(120, 255, 215, 0),
+                        To = Color.FromArgb(50, 255, 215, 0),
+                        Duration = TimeSpan.FromSeconds(0.5),
+                        AutoReverse = true,
+                        RepeatBehavior = new RepeatBehavior(3)
+                    };
+                    
+                    SolidColorBrush brush = new SolidColorBrush(Color.FromArgb(80, 255, 215, 0));
+                    QuestNotificationBorder.Background = brush;
+                    brush.BeginAnimation(SolidColorBrush.ColorProperty, blinkAnimation);
+                    
+                    // Сбрасываем индикатор прогресса
+                    QuestProgressIndicator.Width = 0;
+                }
+                else
+                {
+                    // Обычный фон для обновлений прогресса
+                    QuestNotificationBorder.Background = new SolidColorBrush(Color.FromArgb(50, 255, 215, 0));
+                }
+            }
+            else
+            {
+                // Плавно скрываем уведомление
+                DoubleAnimation fadeOut = new DoubleAnimation
+                {
+                    From = 1.0,
+                    To = 0.0,
+                    Duration = TimeSpan.FromSeconds(0.5)
+                };
+                fadeOut.Completed += (s, e) => QuestNotificationBorder.Visibility = Visibility.Collapsed;
+                QuestNotificationBorder.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+                
+                QuestProgressText.Text = "";
+            }
+        });
+    }
+
+    /// <summary>
+    /// Обновляет индикатор прогресса задания на основе текста уведомления
+    /// </summary>
+    private void UpdateQuestProgressIndicator(string questText)
+    {
+        try
+        {
+            // Получаем ширину родительского контейнера
+            double maxWidth = (QuestProgressIndicator.Parent as FrameworkElement)?.ActualWidth ?? 400;
+            
+            // Определяем тип задания и прогресс
+            double progress = 0;
+            
+            if (questText.Contains("Убито:"))
+            {
+                // Формат: "Квест: Убейте 7 врагов за 40 сек | Убито: X/7 | Время: Y сек"
+                int currentKills = 0;
+                int totalKills = 7;
+                
+                // Извлекаем текущее количество убийств
+                int killsIndex = questText.IndexOf("Убито:");
+                if (killsIndex > 0)
+                {
+                    string killsPart = questText.Substring(killsIndex + 7);
+                    string[] killsData = killsPart.Split('/');
+                    if (killsData.Length > 0)
+                    {
+                        int.TryParse(killsData[0].Trim(), out currentKills);
+                    }
+                }
+                
+                progress = (double)currentKills / totalKills;
+            }
+            else if (questText.Contains("Собрано:"))
+            {
+                // Формат: "Квест: Соберите 4 аптечки | Собрано: X/4"
+                int currentCollected = 0;
+                int totalToCollect = 4;
+                
+                // Извлекаем текущее количество собранных аптечек
+                int collectedIndex = questText.IndexOf("Собрано:");
+                if (collectedIndex > 0)
+                {
+                    string collectedPart = questText.Substring(collectedIndex + 9);
+                    string[] collectedData = collectedPart.Split('/');
+                    if (collectedData.Length > 0)
+                    {
+                        int.TryParse(collectedData[0].Trim(), out currentCollected);
+                    }
+                }
+                
+                progress = (double)currentCollected / totalToCollect;
+            }
+            else if (questText.Contains("Очки:"))
+            {
+                // Формат: "Квест: Наберите 2000 очков | Очки: X/2000"
+                int currentScore = 0;
+                int targetScore = 2000;
+                
+                // Извлекаем текущее количество очков
+                int scoreIndex = questText.IndexOf("Очки:");
+                if (scoreIndex > 0)
+                {
+                    string scorePart = questText.Substring(scoreIndex + 6);
+                    string[] scoreData = scorePart.Split('/');
+                    if (scoreData.Length > 0)
+                    {
+                        int.TryParse(scoreData[0].Trim(), out currentScore);
+                    }
+                }
+                
+                progress = (double)currentScore / targetScore;
+            }
+            
+            // Ограничиваем прогресс от 0 до 1
+            progress = Math.Max(0, Math.Min(1, progress));
+            
+            // Обновляем ширину индикатора прогресса с анимацией
+            double targetWidth = progress * maxWidth;
+            
+            DoubleAnimation progressAnimation = new DoubleAnimation
+            {
+                To = targetWidth,
+                Duration = TimeSpan.FromSeconds(0.3),
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+            };
+            
+            QuestProgressIndicator.BeginAnimation(FrameworkElement.WidthProperty, progressAnimation);
+            
+            // Обновляем цвет индикатора в зависимости от прогресса
+            Color indicatorColor;
+            if (progress < 0.3)
+                indicatorColor = Color.FromRgb(255, 215, 0); // Золотой
+            else if (progress < 0.7)
+                indicatorColor = Color.FromRgb(255, 165, 0); // Оранжевый
+            else
+                indicatorColor = Color.FromRgb(50, 205, 50); // Зеленый
+            
+            QuestProgressIndicator.Background = new SolidColorBrush(indicatorColor);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при обновлении индикатора прогресса: {ex.Message}");
         }
     }
 }
